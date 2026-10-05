@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "id": "sufler-benchmark-catalog",
+  "version": "1.0",
+  "description": "Machine-readable index of datasets used by benchmark suites.",
+  "required_modules": ["asr", "embedding", "qu", "llm", "ocr"],
+  "datasets": [
+    {
+      "id": "sufler-eval-100",
+      "path": "benchmarks/datasets/sufler_eval_100.json",
+      "modules": ["qu", "llm"],
+      "sample_count": 100,
+      "status": "ready"
+    },
+    {
+      "id": "cc-reference-scenarios",
+      "path": "benchmarks/datasets/cc_scenarios.json",
+      "modules": ["qu", "llm"],
+      "sample_count": 10,
+      "status": "mixed"
+    },
+    {
+      "id": "asr-bank-terms",
+      "path": "benchmarks/datasets/asr_bank_terms.json",
+      "modules": ["asr"],
+      "sample_count": 50,
+      "status": "ready"
+    },
+    {
+      "id": "asr-synthetic-samples",
+      "path": "benchmarks/datasets/asr_samples.json",
+      "modules": ["asr"],
+      "sample_count": 12,
+      "status": "placeholder"
+    },
+    {
+      "id": "rag-cc-query-pairs",
+      "path": "benchmarks/datasets/rag_query_pairs.json",
+      "modules": ["embedding", "qu", "llm"],
+      "sample_count": 10,
+      "status": "ready"
+    },
+    {
+      "id": "embedding-suz-recall",
+      "path": "benchmarks/datasets/embedding_recall.json",
+      "modules": ["embedding", "llm"],
+      "sample_count": 20,
+      "status": "ready"
+    },
+    {
+      "id": "qu-cc-semantic-pairs",
+      "path": "benchmarks/datasets/qu_synonyms.json",
+      "modules": ["qu"],
+      "sample_count": 20,
+      "status": "ready"
+    },
+    {
+      "id": "qu-cc-bilingual-pairs",
+      "path": "benchmarks/datasets/qu_bilingual.json",
+      "modules": ["qu"],
+      "sample_count": 10,
+      "status": "ready"
+    },
+    {
+      "id": "ocr-synthetic-samples",
+      "path": "benchmarks/datasets/ocr_samples.json",
+      "modules": ["ocr", "llm"],
+      "sample_count": 5,
+      "status": "placeholder"
+    }
+  ]
+}

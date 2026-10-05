@@ -1,0 +1,4 @@
+# Optional LDAPS stack for AUTH_BACKEND=ldaps (I.10 / Linux bank hosts).
+# Not installed in the Windows local venv by default (python-ldap needs build tools).
+django-auth-ldap>=4.6,<5
+python-ldap>=3.4,<4

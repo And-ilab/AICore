@@ -1,0 +1,277 @@
+# Deploy Sufler stack to the bank TEST VM.
+#
+# Triggers:
+#   - workflow_dispatch (manual; supports dry_run)
+#   - push of tags v* or test-*
+#
+# Secrets / vars: see infra/test/github-actions-deploy.md
+name: Deploy TEST
+
+"on":
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build only — skip registry push and SSH deploy"
+        type: boolean
+        default: true
+      image_tag:
+        description: "Image tag (empty = manual-<short-sha>)"
+        required: false
+        type: string
+        default: ""
+      skip_cpu_inference:
+        description: "Skip CPU ollama/embedding deploy"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+      - "test-*"
+
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY_HOST: ${{ vars.REGISTRY_HOST || 'ghcr.io' }}
+
+jobs:
+  build-push:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+      backend_image: ${{ steps.meta.outputs.backend_image }}
+      frontend_image: ${{ steps.meta.outputs.frontend_image }}
+      ollama_image: ${{ steps.meta.outputs.ollama_image }}
+      embedding_image: ${{ steps.meta.outputs.embedding_image }}
+      cpu_inference: ${{ steps.meta.outputs.cpu_inference }}
+      dry_run: ${{ steps.meta.outputs.dry_run }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve image metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          OWNER_LC="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          REPO_LC="$(echo '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')"
+          PREFIX="${{ vars.IMAGE_PREFIX }}"
+          if [[ -z "${PREFIX}" ]]; then
+            PREFIX="${{ env.REGISTRY_HOST }}/${OWNER_LC}/${REPO_LC}"
+          fi
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            DRY_RUN="${{ inputs.dry_run }}"
+            TAG_INPUT="${{ inputs.image_tag }}"
+            SKIP_CPU="${{ inputs.skip_cpu_inference }}"
+            if [[ -n "${TAG_INPUT}" ]]; then
+              TAG="${TAG_INPUT}"
+            else
+              TAG="manual-${GITHUB_SHA::12}"
+            fi
+          else
+            DRY_RUN="false"
+            SKIP_CPU="false"
+            TAG="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ "${SKIP_CPU}" == "true" ]]; then
+            CPU_INFERENCE="false"
+          else
+            CPU_INFERENCE="true"
+          fi
+
+          BACKEND_IMAGE="${PREFIX}/backend:${TAG}"
+          FRONTEND_IMAGE="${PREFIX}/frontend:${TAG}"
+          OLLAMA_IMAGE="ollama/ollama:latest"
+          EMBEDDING_IMAGE="${PREFIX}/embedding:${TAG}"
+
+          {
+            echo "tag=${TAG}"
+            echo "backend_image=${BACKEND_IMAGE}"
+            echo "frontend_image=${FRONTEND_IMAGE}"
+            echo "ollama_image=${OLLAMA_IMAGE}"
+            echo "embedding_image=${EMBEDDING_IMAGE}"
+            echo "cpu_inference=${CPU_INFERENCE}"
+            echo "dry_run=${DRY_RUN}"
+            echo "prefix=${PREFIX}"
+          } >> "${GITHUB_OUTPUT}"
+
+          echo "Image tag: ${TAG}"
+          echo "Backend:   ${BACKEND_IMAGE}"
+          echo "Frontend:  ${FRONTEND_IMAGE}"
+          echo "Ollama:    ${OLLAMA_IMAGE}"
+          echo "Embedding: ${EMBEDDING_IMAGE}"
+          echo "CPU inf:   ${CPU_INFERENCE}"
+          echo "Dry run:   ${DRY_RUN}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Document required secrets (names only)
+        shell: bash
+        run: |
+          cat <<'EOF'
+          === Deploy TEST — required GitHub secrets (values never printed) ===
+          TEST_SSH_HOST       — TEST VM host/IP
+          TEST_SSH_USER       — SSH user (Docker rights)
+          TEST_SSH_KEY        — private key PEM
+          TEST_DEPLOY_PATH    — absolute path to repo on VM (e.g. /opt/sufler)
+          Optional: TEST_SSH_PORT (default 22)
+          Optional registry (VM pull + non-GHCR push):
+            REGISTRY_USERNAME, REGISTRY_PASSWORD
+          Optional vars: REGISTRY_HOST, IMAGE_PREFIX
+          Full doc: infra/test/github-actions-deploy.md
+          App secrets (Postgres/LDAP/…) live in infra/test/.env on the VM only.
+          CPU inference: official ollama/ollama + embedding image (built/pushed).
+          EOF
+
+          if [[ "${{ steps.meta.outputs.dry_run }}" == "true" ]]; then
+            echo "DRY_RUN=true — push and SSH will be skipped."
+          fi
+
+      - name: Log in to container registry
+        if: steps.meta.outputs.dry_run != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+          username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          password: ${{ secrets.REGISTRY_PASSWORD || github.token }}
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: ${{ steps.meta.outputs.dry_run != 'true' }}
+          load: ${{ steps.meta.outputs.dry_run == 'true' }}
+          tags: ${{ steps.meta.outputs.backend_image }}
+          cache-from: type=gha,scope=sufler-backend
+          cache-to: type=gha,mode=max,scope=sufler-backend
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
+          push: ${{ steps.meta.outputs.dry_run != 'true' }}
+          load: ${{ steps.meta.outputs.dry_run == 'true' }}
+          tags: ${{ steps.meta.outputs.frontend_image }}
+          cache-from: type=gha,scope=sufler-frontend
+          cache-to: type=gha,mode=max,scope=sufler-frontend
+
+      - name: Build embedding image (CPU E5)
+        if: steps.meta.outputs.cpu_inference == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend/services/embedding
+          file: ./backend/services/embedding/Dockerfile
+          push: ${{ steps.meta.outputs.dry_run != 'true' }}
+          load: ${{ steps.meta.outputs.dry_run == 'true' }}
+          tags: ${{ steps.meta.outputs.embedding_image }}
+          cache-from: type=gha,scope=sufler-embedding
+          cache-to: type=gha,mode=max,scope=sufler-embedding
+
+      - name: Dry-run summary
+        if: steps.meta.outputs.dry_run == 'true'
+        run: |
+          echo "Dry-run complete: images built on the runner, not pushed."
+          echo "Would deploy:"
+          echo "  BACKEND_IMAGE=${{ steps.meta.outputs.backend_image }}"
+          echo "  FRONTEND_IMAGE=${{ steps.meta.outputs.frontend_image }}"
+          echo "  OLLAMA_IMAGE=${{ steps.meta.outputs.ollama_image }}"
+          echo "  EMBEDDING_IMAGE=${{ steps.meta.outputs.embedding_image }}"
+          echo "  CPU_INFERENCE=${{ steps.meta.outputs.cpu_inference }}"
+
+  ssh-deploy:
+    name: SSH deploy to TEST VM
+    needs: build-push
+    if: needs.build-push.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check required deploy secrets
+        shell: bash
+        env:
+          TEST_SSH_HOST: ${{ secrets.TEST_SSH_HOST }}
+          TEST_SSH_USER: ${{ secrets.TEST_SSH_USER }}
+          TEST_SSH_KEY: ${{ secrets.TEST_SSH_KEY }}
+          TEST_DEPLOY_PATH: ${{ secrets.TEST_DEPLOY_PATH }}
+        run: |
+          missing=0
+          for name in TEST_SSH_HOST TEST_SSH_USER TEST_SSH_KEY TEST_DEPLOY_PATH; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing secret: ${name}"
+              missing=1
+            fi
+          done
+          if [[ "${missing}" -ne 0 ]]; then
+            echo "Configure secrets listed in infra/test/github-actions-deploy.md"
+            exit 1
+          fi
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.TEST_SSH_KEY }}
+
+      - name: Add TEST host to known_hosts
+        env:
+          TEST_SSH_HOST: ${{ secrets.TEST_SSH_HOST }}
+          TEST_SSH_PORT: ${{ secrets.TEST_SSH_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${TEST_SSH_PORT}" -H "${TEST_SSH_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Sync repo, pull images, restart stack on TEST
+        env:
+          TEST_SSH_HOST: ${{ secrets.TEST_SSH_HOST }}
+          TEST_SSH_USER: ${{ secrets.TEST_SSH_USER }}
+          TEST_SSH_PORT: ${{ secrets.TEST_SSH_PORT || '22' }}
+          TEST_DEPLOY_PATH: ${{ secrets.TEST_DEPLOY_PATH }}
+          IMAGE_TAG: ${{ needs.build-push.outputs.image_tag }}
+          DEPLOY_SHA: ${{ github.sha }}
+          BACKEND_IMAGE: ${{ needs.build-push.outputs.backend_image }}
+          FRONTEND_IMAGE: ${{ needs.build-push.outputs.frontend_image }}
+          OLLAMA_IMAGE: ${{ needs.build-push.outputs.ollama_image }}
+          EMBEDDING_IMAGE: ${{ needs.build-push.outputs.embedding_image }}
+          CPU_INFERENCE: ${{ needs.build-push.outputs.cpu_inference }}
+          REGISTRY_HOST: ${{ env.REGISTRY_HOST }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ssh -p "${TEST_SSH_PORT}" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${TEST_SSH_USER}@${TEST_SSH_HOST}" \
+            "set -euo pipefail; \
+             export BACKEND_IMAGE=$(printf %q "${BACKEND_IMAGE}") \
+                    FRONTEND_IMAGE=$(printf %q "${FRONTEND_IMAGE}") \
+                    OLLAMA_IMAGE=$(printf %q "${OLLAMA_IMAGE}") \
+                    EMBEDDING_IMAGE=$(printf %q "${EMBEDDING_IMAGE}") \
+                    REGISTRY_HOST=$(printf %q "${REGISTRY_HOST}") \
+                    REGISTRY_USERNAME=$(printf %q "${REGISTRY_USERNAME}") \
+                    REGISTRY_PASSWORD=$(printf %q "${REGISTRY_PASSWORD}"); \
+             cd $(printf %q "${TEST_DEPLOY_PATH}"); \
+             if [[ -d .git ]]; then \
+               git fetch --tags --force origin; \
+               git checkout --force $(printf %q "${IMAGE_TAG}") \
+                 || git checkout --force $(printf %q "${DEPLOY_SHA}"); \
+             fi; \
+             cd infra/test; \
+             chmod +x deploy.sh ../local-inference/*.sh; \
+             if [[ $(printf %q "${CPU_INFERENCE}") == true ]]; then \
+               ./deploy.sh pull-up --cpu-inference; \
+               ./deploy.sh cpu-verify; \
+             else \
+               ./deploy.sh pull-up --no-cpu-inference; \
+             fi"

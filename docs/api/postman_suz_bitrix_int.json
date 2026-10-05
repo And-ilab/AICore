@@ -1,0 +1,296 @@
+{
+  "info": {
+    "name": "Sufler SUZ Bitrix INT (TZ Model B)",
+    "description": "Имитация Bitrix → Sufler по ТЗ (INT-01…10).\n\nВАЖНО про auth:\n1) Переимпортируй ЭТУ версию файла (старая ломала HMAC).\n2) Variables → suz_hmac_secret = replace-with-a-shared-suz-webhook-secret (как в infra/.env)\n3) Body — одна строка JSON, не форматируй Beautify — иначе подпись сломается.\n4) INT-07c специально даёт {\"error\":\"auth\"}.\n\nУспех webhook: 202. 503 = нет Redis/Celery.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "sufler-suz-bitrix-int-tz-v2"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "suz_hmac_secret", "value": "replace-with-a-shared-suz-webhook-secret" },
+    { "key": "bitrix_base_url", "value": "http://bitrix.test.local" },
+    { "key": "bitrix_service_token", "value": "replace-with-bitrix-service-token" }
+  ],
+  "item": [
+    {
+      "name": "00 Helpers (вспомогательные)",
+      "description": "Проверка стенда и сторона Суфлёра для INT-09.",
+      "item": [
+        {
+          "name": "H-01 Health — backend alive",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{base_url}}/client-info/",
+            "description": "Жив ли backend :8000. Ожидание 200."
+          }
+        },
+        {
+          "name": "H-02 INT-09 — reconcile status (Sufler)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{base_url}}/api/v1/knowledge/reconcile/",
+            "description": "Курсор INT-09 на Суфлёре. Ожидание 200."
+          }
+        },
+        {
+          "name": "H-03 INT-09 — reconcile run (Sufler)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{base_url}}/api/v1/knowledge/reconcile/run/",
+            "description": "Запуск poll /changes (mock без Bitrix). Ожидание 200."
+          }
+        }
+      ]
+    },
+    {
+      "name": "INT Bitrix → Sufler (webhook)",
+      "description": "POST /api/v1/knowledge/events. Подписи HMAC уже вставлены под секрет из infra/.env. Не жми Beautify на Body.",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const CryptoJS = require('crypto-js');",
+              "const name = pm.info.requestName || '';",
+              "if (name.indexOf('INT-07c') >= 0) { return; }",
+              "if (!pm.request.body || !pm.request.body.raw) { return; }",
+              "const raw = pm.request.body.raw;",
+              "let data;",
+              "try { data = JSON.parse(raw); } catch (e) { console.warn('bad json'); return; }",
+              "if (data.event_id) {",
+              "  pm.request.headers.upsert({ key: 'X-Sufler-Event-Id', value: String(data.event_id) });",
+              "}",
+              "const secret = pm.collectionVariables.get('suz_hmac_secret') || pm.variables.get('suz_hmac_secret') || '';",
+              "if (!secret) {",
+              "  console.warn('suz_hmac_secret empty — backend вернёт auth если секрет задан');",
+              "  return;",
+              "}",
+              "const sig = CryptoJS.HmacSHA256(raw, secret).toString();",
+              "pm.request.headers.upsert({ key: 'X-Sufler-Signature', value: sig });",
+              "console.log('signed', name, 'sig', sig.slice(0, 12));"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "INT-01 Publish article (version_published)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Sufler-Event-Id", "value": "550e8400-e29b-41d4-a716-446655440001" },
+              { "key": "X-Sufler-Signature", "value": "bd717b1daf7b16fca72b80d7c4dfba097555ee69512c1fe701c94b527ccbf4f0" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"event_id\":\"550e8400-e29b-41d4-a716-446655440001\",\"event_type\":\"article.version_published\",\"occurred_at\":\"2026-05-27T14:32:01+03:00\",\"article_id\":12845,\"iblock_id\":42,\"section_id\":318,\"version_id\":92831,\"version_number\":1,\"is_current\":true,\"status\":\"published\",\"changed_fields\":[\"DETAIL_TEXT\"],\"permalink\":\"https://suz.bank.by/kc/articles/komissiya-perevod/\",\"locale\":\"ru\",\"visibility_scope\":[\"kc_operator\"],\"title\":\"Komissiya za perevod\",\"preview\":\"Kratkaya vydderzhka\",\"body_html\":\"<p>Komissiya za perevod mezhdu schetami banka sostavlyaet 0.5 procenta ot summy operacii.</p>\",\"body_plain\":\"Komissiya za perevod mezhdu schetami banka sostavlyaet 0.5 procenta ot summy operacii.\",\"checksum\":\"sha256:b3295834bffb364b93770c96b386277c218ae65358a796ba3b6cfe811182f742\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/v1/knowledge/events",
+            "description": "INT-01 публикация. Ожидание: 202 accepted."
+          }
+        },
+        {
+          "name": "INT-02 Save draft (updated draft)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Sufler-Event-Id", "value": "7c9e6679-7425-40de-944b-e07fc1f90ae7" },
+              { "key": "X-Sufler-Signature", "value": "2061739781897aeb7569af010bd668d92e027df56bb8e6ffc9e8bc83b3df18f4" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"event_id\":\"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\"event_type\":\"article.updated\",\"occurred_at\":\"2026-05-27T15:10:00+03:00\",\"article_id\":12845,\"iblock_id\":42,\"status\":\"draft\",\"is_current\":false,\"checksum\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"changed_fields\":[\"DETAIL_TEXT\"],\"title\":\"Draft title\",\"preview\":\"Draft\",\"body_html\":\"<p>Draft text</p>\",\"body_plain\":\"Draft text\",\"permalink\":\"https://suz.bank.by/kc/articles/komissiya-perevod/\",\"locale\":\"ru\",\"visibility_scope\":[\"kc_operator\"]}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/v1/knowledge/events",
+            "description": "INT-02 черновик. Ожидание: 202. Индекс КЦ не меняется."
+          }
+        },
+        {
+          "name": "INT-03 Unpublish article",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Sufler-Event-Id", "value": "b1c2d3e4-f506-7890-abcd-ef1234567890" },
+              { "key": "X-Sufler-Signature", "value": "0c15e23f7e43ccde1bce9f7022dcf52899f229d5201d9b9a89dcacca1d218b6d" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"event_id\":\"b1c2d3e4-f506-7890-abcd-ef1234567890\",\"event_type\":\"article.unpublished\",\"occurred_at\":\"2026-05-27T15:45:00+03:00\",\"article_id\":12845,\"iblock_id\":42,\"status\":\"archived\",\"is_current\":false}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/v1/knowledge/events",
+            "description": "INT-03 снятие с публикации. Ожидание: 202. Soft-delete."
+          }
+        },
+        {
+          "name": "INT-04 Delete article",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Sufler-Event-Id", "value": "a3bb189e-8bf9-4888-9912-ace4e6543002" },
+              { "key": "X-Sufler-Signature", "value": "f8f75b7a08b839f9dd476fde144d966f406a9ade6da6cbaf5b1d48d72e308e46" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"event_id\":\"a3bb189e-8bf9-4888-9912-ace4e6543002\",\"event_type\":\"article.deleted\",\"occurred_at\":\"2026-05-27T16:00:00+03:00\",\"article_id\":9912,\"iblock_id\":42,\"is_current\":false,\"status\":\"archived\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/v1/knowledge/events",
+            "description": "INT-04 удаление article_id=9912. Ожидание: 202. Hard-delete."
+          }
+        },
+        {
+          "name": "INT-05 Publish new version",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Sufler-Event-Id", "value": "c0ffee00-1234-5678-9abc-def012345678" },
+              { "key": "X-Sufler-Signature", "value": "00fd8708ed651fe7d6ec3e6a0a6a4116e85a6e91d809b4bc4765bb32b346dd12" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"event_id\":\"c0ffee00-1234-5678-9abc-def012345678\",\"event_type\":\"article.version_published\",\"occurred_at\":\"2026-05-28T10:00:00+03:00\",\"article_id\":12845,\"iblock_id\":42,\"section_id\":318,\"version_id\":99001,\"version_number\":7,\"is_current\":true,\"status\":\"published\",\"changed_fields\":[\"DETAIL_TEXT\"],\"permalink\":\"https://suz.bank.by/kc/articles/komissiya-perevod/\",\"locale\":\"ru\",\"visibility_scope\":[\"kc_operator\"],\"title\":\"Komissiya za perevod\",\"preview\":\"Obnovlennaya vydderzhka\",\"body_html\":\"<p>Tekst redakcii v7: komissiya obnovlena i sostavlyaet 0.3 procenta dlya Premium.</p>\",\"body_plain\":\"Tekst redakcii v7: komissiya obnovlena i sostavlyaet 0.3 procenta dlya Premium.\",\"checksum\":\"sha256:eb4629205ac66c1fbf01386f8d50ccdd70d11b2f124822e26c89701aa754533e\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/v1/knowledge/events",
+            "description": "INT-05 новая версия. Ожидание: 202."
+          }
+        },
+        {
+          "name": "INT-07a Receiver OK (accepted 202)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Sufler-Event-Id", "value": "11111111-2222-4333-8444-555555555555" },
+              { "key": "X-Sufler-Signature", "value": "5a4fc2a8550bb7a346eaec8643f0cdb289f8258d902998f9b5780623966d6370" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"event_id\":\"11111111-2222-4333-8444-555555555555\",\"event_type\":\"article.version_published\",\"occurred_at\":\"2026-05-27T14:32:01+03:00\",\"article_id\":20001,\"iblock_id\":42,\"section_id\":318,\"version_id\":1,\"version_number\":1,\"is_current\":true,\"status\":\"published\",\"changed_fields\":[\"DETAIL_TEXT\"],\"permalink\":\"https://suz.bank.by/kc/articles/int07-ok/\",\"locale\":\"ru\",\"visibility_scope\":[\"kc_operator\"],\"title\":\"INT-07 accepted sample\",\"preview\":\"check\",\"body_html\":\"<p>Valid webhook body for INT-07 success check.</p>\",\"body_plain\":\"Valid webhook body for INT-07 success check.\",\"checksum\":\"sha256:8d4dc0cdfbff363faaaf3a5ea17b8bede35f1ebbd893cc1920a24cc56db4011d\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/v1/knowledge/events",
+            "description": "INT-07 успех. Ожидание: 202."
+          }
+        },
+        {
+          "name": "INT-07b Receiver validation (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Sufler-Event-Id", "value": "22222222-3333-4444-8555-666666666666" },
+              { "key": "X-Sufler-Signature", "value": "368b57f688d19c9152dfca43abad0e040eace50848a545d1f2edf6cdb747d96c" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"event_id\":\"22222222-3333-4444-8555-666666666666\",\"event_type\":\"article.version_published\",\"occurred_at\":\"2026-05-27T14:32:01+03:00\",\"article_id\":20002,\"iblock_id\":42,\"status\":\"published\",\"is_current\":true}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/v1/knowledge/events",
+            "description": "INT-07 валидация. Подпись верная, полей мало. Ожидание: 400 validation (не auth)."
+          }
+        },
+        {
+          "name": "INT-07c Receiver auth fail (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Sufler-Event-Id", "value": "33333333-4444-4555-8666-777777777777" },
+              { "key": "X-Sufler-Signature", "value": "0000000000000000000000000000000000000000000000000000000000000000" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"event_id\":\"33333333-4444-4555-8666-777777777777\",\"event_type\":\"article.deleted\",\"occurred_at\":\"2026-05-27T16:00:00+03:00\",\"article_id\":20003,\"iblock_id\":42}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/v1/knowledge/events",
+            "description": "INT-07 auth. Специально битый HMAC. Ожидание: 401 {\"error\":\"auth\"}."
+          }
+        },
+        {
+          "name": "INT-08 Retry same event_id (after INT-01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Sufler-Event-Id", "value": "550e8400-e29b-41d4-a716-446655440001" },
+              { "key": "X-Sufler-Signature", "value": "bd717b1daf7b16fca72b80d7c4dfba097555ee69512c1fe701c94b527ccbf4f0" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"event_id\":\"550e8400-e29b-41d4-a716-446655440001\",\"event_type\":\"article.version_published\",\"occurred_at\":\"2026-05-27T14:32:01+03:00\",\"article_id\":12845,\"iblock_id\":42,\"section_id\":318,\"version_id\":92831,\"version_number\":1,\"is_current\":true,\"status\":\"published\",\"changed_fields\":[\"DETAIL_TEXT\"],\"permalink\":\"https://suz.bank.by/kc/articles/komissiya-perevod/\",\"locale\":\"ru\",\"visibility_scope\":[\"kc_operator\"],\"title\":\"Komissiya za perevod\",\"preview\":\"Kratkaya vydderzhka\",\"body_html\":\"<p>Komissiya za perevod mezhdu schetami banka sostavlyaet 0.5 procenta ot summy operacii.</p>\",\"body_plain\":\"Komissiya za perevod mezhdu schetami banka sostavlyaet 0.5 procenta ot summy operacii.\",\"checksum\":\"sha256:b3295834bffb364b93770c96b386277c218ae65358a796ba3b6cfe811182f742\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/api/v1/knowledge/events",
+            "description": "INT-08 retry того же тела что INT-01. Сначала INT-01. Ожидание: 202."
+          }
+        }
+      ]
+    },
+    {
+      "name": "INT на стороне Bitrix (не Sufler API)",
+      "description": "Суфлёр→Bitrix / endpoint на CMS. Без живого Bitrix не ответят — это нормально. INT-09 со стороны Суфлёра: H-02/H-03.",
+      "item": [
+        {
+          "name": "INT-06 GET article from Bitrix (optional reserve)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{bitrix_service_token}}" }
+            ],
+            "url": "{{bitrix_base_url}}/rest/iblock.element.get?ID=12845&IBLOCK_ID=42",
+            "description": "INT-06 резерв. Без Bitrix не работает."
+          }
+        },
+        {
+          "name": "INT-09 GET Bitrix /changes (Bitrix hosts this)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{bitrix_service_token}}" }
+            ],
+            "url": "{{bitrix_base_url}}/local/api/sufler/v1/changes?since=2026-05-27T12:00:00%2B03:00&limit=100",
+            "description": "INT-09 endpoint Bitrix. Свою сторону — H-02/H-03."
+          }
+        },
+        {
+          "name": "INT-10 Full load list from Bitrix REST",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{bitrix_service_token}}" }
+            ],
+            "url": "{{bitrix_base_url}}/rest/iblock.element.list?IBLOCK_ID=42&ACTIVE=Y",
+            "description": "INT-10 полная выгрузка из Bitrix. Без Bitrix не работает."
+          }
+        }
+      ]
+    }
+  ]
+}

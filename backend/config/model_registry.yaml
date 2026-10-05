@@ -1,0 +1,231 @@
+version: 1
+# approved_dev permits dev/test use only.
+# Never set prod_candidate or production routing without a completed human
+# SIGNOFF in docs/technical/model-selection-v1.md and a reviewed change.
+slots:
+  asr:
+    dev_model: vosk-model-small-ru-0.22
+    prod_candidate: null
+    kpi:
+      # FR-ASR-01: потоковое распознавание RU/EN.
+      languages: [ru, en]
+      # FR-ASR-02, FR-ASR-03, FR-ASR-15: точность >=90%.
+      # WER — доля ошибок, поэтому договорный порог нормализован как WER <=10%.
+      word_accuracy_percent_min: 90
+      wer_percent_max: 10
+      # FR-ASR-03: нагрузка не менее 70 одновременных звонков.
+      concurrent_calls_min: 70
+      # FR-ASR-04: задержка преобразования речи не более 1 секунды (p95).
+      latency_p95_ms_max: 1000
+      # FR-ASR-09, FR-ASR-13: банковский словарь и hotword boost.
+      # Числовой порог term accuracy в ТЗ не задан.
+      hotword_term_accuracy_percent_min: null
+      # FR-ASR-13: hot-reload словаря в активные сессии <=30 секунд.
+      dictionary_reload_p95_ms_max: 30000
+    status: approved_dev
+
+  embedding:
+    dev_model: intfloat/multilingual-e5-large
+    prod_candidate: null
+    kpi:
+      # FR-UND-05: семантический поиск работает для RU/EN.
+      languages: [ru, en]
+      # FR-UND-04, FR-UND-06: контекстные embedding и семантическая близость.
+      similarity_metric: cosine
+      # FR-UND-04, FR-UND-06: измеряется на RAG query pairs.
+      # Числовой порог Recall@5 в ТЗ не задан и утверждается после benchmark.
+      recall_at_5_percent_min: null
+      # FR-LLM-04, FR-UND-13: пороги включения фрагмента настраиваются.
+      similarity_threshold_configurable: true
+      # FR-CC-05, FR-UND-08: новая версия индекса доступна <=30 с p95.
+      index_update_latency_p95_ms_max: 30000
+      # FR-LLM-03, P1-24: calibration для профиля kb_cc_production.
+      calibration_profile: kb_cc_production
+      target_index: cc_production
+      chunk_size_candidates_tokens: [256, 512, 1024]
+      chunk_overlap_candidates_tokens: [50, 100, 200]
+      # Frozen dev baseline; measured optimum требует повторного benchmark.
+      optimal_chunk_size_tokens: 512
+      optimal_chunk_overlap_tokens: 100
+      chunk_selection_status: dev_frozen
+      # FR-LLM-04: два порога semantic retrieval для cc_production.
+      # Frozen engineering defaults; заменить только benchmark + sign-off.
+      context_inclusion_threshold: 0.60
+      deterministic_answer_threshold: 0.85
+      retrieval_threshold_status: dev_frozen
+    status: approved_dev
+
+  qu:
+    dev_model: null
+    prod_candidate: null
+    kpi:
+      # FR-UND-05: распознавание намерений на RU/EN.
+      languages: [ru, en]
+      # FR-UND-04, FR-UND-06: семантическое совпадение и релевантность.
+      semantic_match_recall_at_5_percent_min: null
+      relevance_score_required: true
+      # FR-UND-13: минимальная релевантность задаётся администратором.
+      min_relevance_configurable: true
+      # UC-UND-02, FR-UND-14: неоднозначность при delta top-2 <=5 п.п.
+      ambiguous_top2_score_delta_pp_max: 5
+    status: evaluating
+
+  llm_sufler_cc:
+    # Local CPU baseline via llama.cpp OpenAI-compatible server.
+    # Override with MODEL_GATEWAY_MODE=openai + OPENAI_BASE_URL.
+    dev_model: "qwen2.5-1.5b-instruct"
+    prod_candidate: null
+    kpi:
+      profile: sufler_cc
+      gateway_mode: stub
+      api_compatibility: openai
+      # FR admin model params: editable dev generation preset.
+      temperature: 0.20
+      top_p: 0.90
+      max_tokens: 1024
+      # FR-CC-05, FR-CC-06, FR-LLM-05: ответы только из cc_production/СУЗ.
+      grounded_in: cc_production
+      source_grounding_percent_min: 100
+      # FR-LLM-02, FR-LLM-07, FR-SUF-13: до 500 символов.
+      response_chars_max: 500
+      # FR-SUF-06, FR-LLM-07: полный QU -> RAG -> LLM p95 <=2 с.
+      latency_p95_ms_max: 2000
+      # FR-LLM-07: не менее 10 запросов в секунду.
+      requests_per_second_min: 10
+      # FR-LLM-06: доля галлюцинаций не более 3%.
+      hallucination_percent_max: 3
+    status: approved_dev
+
+  llm_assistant_bank:
+    # Local CPU baseline via llama.cpp OpenAI-compatible server.
+    # Override with MODEL_GATEWAY_MODE=openai + OPENAI_BASE_URL.
+    dev_model: "qwen2.5-1.5b-instruct"
+    prod_candidate: null
+    kpi:
+      profile: assistant_bank
+      gateway_mode: stub
+      api_compatibility: openai
+      # FR admin model params: editable dev generation preset.
+      temperature: 0.35
+      top_p: 0.90
+      max_tokens: 1024
+      # FR-ASS-03 / P5-01 dev API contract; числовой лимит не KPI ТЗ.
+      context_tokens_min: 8000
+      streaming_required: true
+      # FR-ASS-14, FR-ASS-33: OpenAI tool/function call pattern.
+      tool_calls_required: true
+      # FR-LLM-05: ответ трассируется до статьи или фрагмента источника.
+      sources_required: true
+      # FR-LLM-02, FR-LLM-07: до 500 символов.
+      response_chars_max: 500
+      # FR-LLM-07: p95 <=2 с и не менее 10 RPS.
+      latency_p95_ms_max: 2000
+      requests_per_second_min: 10
+      # FR-LLM-06: доля галлюцинаций не более 3%.
+      hallucination_percent_max: 3
+      # FR-ASS-36: до 2000 одновременных пользователей.
+      concurrent_users_min: 2000
+    status: approved_dev
+
+  llm_docs_ocr:
+    dev_model: "stub:docs_ocr"
+    prod_candidate: null
+    kpi:
+      profile: docs_ocr
+      gateway_mode: stub
+      api_compatibility: openai
+      # FR-OCR-22: модель работает on-prem в изолированной сети.
+      deployment: on_prem
+      # FR-OCR-13, FR-OCR-14: извлечение и валидация структурированных полей.
+      structured_output_required: true
+      required_fields_validation_required: true
+      # FR-LLM-02, FR-LLM-07: общие ограничения LLM-платформы.
+      response_chars_max: 500
+      latency_p95_ms_max: 2000
+      requests_per_second_min: 10
+      # FR-LLM-06: доля галлюцинаций не более 3%.
+      hallucination_percent_max: 3
+    status: approved_dev
+
+  ocr:
+    # Paddle when installed, else Tesseract; every PDF/TIFF page is read.
+    dev_model: "auto:paddle+tesseract"
+    prod_candidate: null
+    kpi:
+      # FR-OCR-18: точность на стандартных сканах не менее 95%.
+      accuracy_percent_min: 95
+      # FR-OCR-19: не менее 1 страницы/с на один поток.
+      throughput_pages_per_second_min: 1
+      # FR-OCR-06, FR-OCR-12: форматы и языки эталонного набора.
+      languages: [ru, en]
+      input_formats: [pdf, jpg, jpeg, png, tiff]
+      # FR-OCR-13, FR-OCR-14: обязательные поля извлечены и валидированы.
+      required_fields_validation_required: true
+      engine: paddle+tesseract
+      gateway_mode: auto
+    status: evaluating
+
+  reranker:
+    dev_model: null
+    prod_candidate: null
+    kpi:
+      # FR-UND-06, FR-UND-12: каждый результат имеет процент релевантности.
+      relevance_score_percent: true
+      # FR-UND-13, FR-LLM-04: пороги релевантности настраиваются.
+      threshold_configurable: true
+      # FR-SUF-02, FR-SUF-11: выдача 3-5 подсказок по убыванию score.
+      ranked_results_min: 3
+      ranked_results_max: 5
+      descending_relevance_required: true
+      # FR-UND-06: качество ранжирования измеряется после benchmark.
+      ndcg_at_5_percent_min: null
+    status: evaluating
+
+profiles:
+  # FR-LLM-03, FR-LLM-04, FR-LLM-05; baseline ingest P3-01 / RAG P3-04.
+  kb_cc_production:
+    target_index: cc_production
+    embedding_slot: embedding
+    embedding_model: intfloat/multilingual-e5-large
+    similarity_metric: cosine
+    chunk_size_tokens: 512
+    chunk_overlap_tokens: 100
+    thresholds:
+      context_inclusion: 0.60
+      deterministic_answer: 0.85
+    source_trace_required: true
+    status: dev_frozen
+    # P1-21/P1-22 measured JSON отсутствуют; это dev, не prod optimum.
+    selection_basis: engineering_dev_baseline
+    bench_evidence:
+      p1_21_chunk_grid_report: null
+      p1_22_threshold_report: null
+    change_control:
+      benchmark_required: true
+      sign_off_required: true
+      last_sign_off: initial-dev-baseline
+
+# Bank TEST / PROD inference binding (ASR service + ModelGateway).
+# profile=test is required on the TEST VM (AI_INFERENCE_PROFILE=test).
+deployment_profiles:
+  test:
+    status: approved_dev
+    description: >
+      Bank TEST VM AI inference tier. Uses approved_dev stubs by default
+      (ASR stub or Vosk small; LLM ModelGateway stub). GPU not required.
+      Switch llm.gateway_mode to openai only with an approved candidate +
+      OPENAI_BASE_URL on the air-gapped host.
+    gpu_required: false
+    asr:
+      slot: asr
+      mode: stub
+      model: vosk-model-small-ru-0.22
+    llm:
+      gateway_mode: stub
+      profiles:
+        - sufler_cc
+        - assistant_bank
+        - docs_ocr
+    embedding:
+      slot: embedding
+      model: intfloat/multilingual-e5-large

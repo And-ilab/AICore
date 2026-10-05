@@ -1,0 +1,146 @@
+{
+  "schema_version": "1.0",
+  "id": "rag-cc-query-pairs",
+  "version": "1.0",
+  "description": "Reference queries and expected scenario targets for retrieval, QU, and grounded LLM evaluation.",
+  "modules": ["embedding", "qu", "llm"],
+  "tasks": ["retrieval", "intent-matching", "grounded-answer"],
+  "status": "ready",
+  "source": {
+    "type": "derived",
+    "path": "benchmarks/datasets/cc_scenarios.json",
+    "contract_source": "docs/sources/technical-requirements/app2-scenarios/manifest.yaml"
+  },
+  "samples": [
+    {
+      "id": "RAG-CC-001",
+      "input": {"query": "Можно ли открыть счёт в 14 лет?", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-001",
+        "source_chunk_ids": ["SUZ-CC-SCR-001#chunk-0001"],
+        "intent": "minor_account_opening",
+        "required_concepts": ["14 лет", "законный представитель", "текущий счёт"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    },
+    {
+      "id": "RAG-CC-002",
+      "input": {"query": "Как открыть вклад на имя шестилетнего внука?", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-002",
+        "source_chunk_ids": ["SUZ-CC-SCR-002#chunk-0001"],
+        "intent": "child_deposit_opening",
+        "required_concepts": ["до 14 лет", "документ ребёнка", "на имя"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    },
+    {
+      "id": "RAG-CC-003",
+      "input": {"query": "Как платить телефоном через NFC?", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-003",
+        "source_chunk_ids": ["SUZ-CC-SCR-003#chunk-0001"],
+        "intent": "mobile_nfc_payment",
+        "required_concepts": ["NFC", "iOS", "Android"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    },
+    {
+      "id": "RAG-CC-004",
+      "input": {"query": "Хочу взять кредит на подержанный автомобиль", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-004",
+        "source_chunk_ids": ["SUZ-CC-SCR-004#chunk-0001"],
+        "intent": "car_loan",
+        "required_concepts": ["бывший в эксплуатации", "10 лет", "кредит"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    },
+    {
+      "id": "RAG-CC-005",
+      "input": {"query": "Как отправить деньги физлицу в Россию?", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-005",
+        "source_chunk_ids": ["SUZ-CC-SCR-005#chunk-0001"],
+        "intent": "transfer_to_russia",
+        "required_concepts": ["карта РФ", "СБП", "SWIFT"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    },
+    {
+      "id": "RAG-CC-006",
+      "input": {"query": "Я забыл ПИН-код карты, как его сменить?", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-006",
+        "source_chunk_ids": ["SUZ-CC-SCR-006#chunk-0001"],
+        "intent": "card_pin_change",
+        "required_concepts": ["ПИН-код", "смена", "инфокиоск"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    },
+    {
+      "id": "RAG-CC-007",
+      "input": {"query": "Где получить выписку на английском для визы?", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-007",
+        "source_chunk_ids": ["SUZ-CC-SCR-007#chunk-0001"],
+        "intent": "visa_account_statement",
+        "required_concepts": ["английский", "выписка", "отделение"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    },
+    {
+      "id": "RAG-CC-008",
+      "input": {"query": "Заканчивается вклад по стройсбережениям, что дальше?", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-008",
+        "source_chunk_ids": ["SUZ-CC-SCR-008#chunk-0001"],
+        "intent": "construction_savings_maturity",
+        "required_concepts": ["срок вклада", "жильё", "пакет документов"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    },
+    {
+      "id": "RAG-CC-009",
+      "input": {"query": "Можно ли перевести деньги на криптобиржу?", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-009",
+        "source_chunk_ids": ["SUZ-CC-SCR-009#chunk-0001"],
+        "intent": "crypto_exchange_transfer",
+        "required_concepts": ["Visa", "WhiteBird", "BYNEX"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    },
+    {
+      "id": "RAG-CC-010",
+      "input": {"query": "Как проверить российские рубли на подлинность?", "language": "ru"},
+      "expected": {
+        "context_path": "benchmarks/datasets/cc_scenarios.json",
+        "context_sample_id": "CC-SCR-010",
+        "source_chunk_ids": ["SUZ-CC-SCR-010#chunk-0001"],
+        "intent": "ruble_authenticity_check",
+        "required_concepts": ["купюры", "инкассо", "проверка подлинности"],
+        "grounded_only": true
+      },
+      "status": "ready"
+    }
+  ]
+}

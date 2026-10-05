@@ -1,0 +1,60 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to server
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync code to server
+        run: |
+          rsync -avz --delete \
+            -e "ssh -p ${{ secrets.SSH_PORT }}" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='infra/.env' \
+            --exclude='infra/test/.env' \
+            --exclude='models/' \
+            --exclude='_extracted' \
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/"
+
+      - name: Rebuild stack with CPU inference
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "set -euo pipefail; \
+             cd ${{ secrets.DEPLOY_PATH }}/infra; \
+             chmod +x local-inference/*.sh; \
+             # Prod nginx SPA + Ollama (not Vite — Vite 504 → white screen on the server).
+             FRONTEND_MODE=prod ./local-inference/up-cpu.sh; \
+             ./local-inference/verify-cpu.sh || echo 'WARN: verify-cpu failed (check ollama/embedding)'"
+
+      - name: Health check
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "curl -fsS http://127.0.0.1:${{ secrets.BACKEND_PORT || 8001 }}/health/ || curl -fsS http://127.0.0.1:8001/health/"

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Беларусбанк — пример сайта · виджет онлайн-чата</title>
+    <style>
+      :root {
+        --color-primary: #0d3880;
+        --color-secondary: #e31e24;
+        --color-surface: #ffffff;
+        --color-surface-muted: #f5f7fb;
+        --color-text: #172033;
+        --color-text-muted: #5f6b7a;
+        --color-border: #d9e0ea;
+        --font-sans: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-sans);
+        color: var(--color-text);
+        background:
+          linear-gradient(180deg, #eaf0fa 0%, var(--color-surface-muted) 220px),
+          var(--color-surface-muted);
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 28px;
+        background: var(--color-surface);
+        border-bottom: 3px solid var(--color-primary);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 700;
+        color: var(--color-primary);
+      }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        color: #fff;
+        border-radius: 8px;
+        background: var(--color-primary);
+        font-size: 14px;
+      }
+      nav { display: flex; gap: 16px; color: var(--color-text-muted); font-size: 14px; }
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 36px 24px 120px;
+      }
+      h1 { margin: 0 0 12px; font-size: 2rem; color: var(--color-primary); }
+      p { margin: 0 0 14px; line-height: 1.55; color: var(--color-text-muted); }
+      .card {
+        margin-top: 24px;
+        padding: 20px;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+      }
+      code {
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #eaf0fa;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <span class="brand-mark">ББ</span>
+        <span>belarusbank.by · демо</span>
+      </div>
+      <nav>
+        <span>Частным лицам</span>
+        <span>Бизнесу</span>
+        <span>О банке</span>
+      </nav>
+    </header>
+    <main>
+      <h1>Карты и счета</h1>
+      <p>
+        Пример страницы банковского сайта с встраиваемым виджетом онлайн-чата
+        (FR-CC-09). Виджет изолирован через Shadow DOM и использует токены
+        оформления Беларусбанка.
+      </p>
+      <div class="card">
+        <p>
+          Код встраивания:
+          <code
+            >&lt;script src="/widget/widget.js" data-widget-id="site-belarusbank"
+            data-placement="website" defer&gt;&lt;/script&gt;</code
+          >
+        </p>
+        <p>
+          Откройте чат кнопкой справа внизу — форма входа, диалог с оператором,
+          после закрытия диалога в АРМ — экран post-chat (оценка и e-mail транскрипта).
+          Письма в Docker → Mailpit
+          <a href="http://localhost:8025" target="_blank" rel="noreferrer">http://localhost:8025</a>;
+          без Docker — файлы в <code>backend/var/mail/</code>.
+        </p>
+        <p>
+          Без симулятора: откройте чат справа внизу, заполните форму и напишите сообщение —
+          обращение попадёт в «Общую очередь» АРМ оператора.
+        </p>
+        <p>
+          Мульти-пользовательский тест: откройте
+          <a href="/online-chat/simulator">/online-chat/simulator</a>,
+          создайте сценарий и запускайте окна клиентов с
+          <code>?sim_client=…&amp;dialog_id=…</code> — виджет подхватит уже созданный диалог.
+        </p>
+      </div>
+    </main>
+    <script
+      src="./widget.js"
+      data-widget-id="site-belarusbank"
+      data-placement="website"
+      data-api-base=""
+      defer
+    ></script>
+  </body>
+</html>

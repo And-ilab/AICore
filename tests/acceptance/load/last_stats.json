@@ -1,0 +1,22 @@
+{
+  "mode": "pipeline",
+  "tool": "locust",
+  "users": 75,
+  "duration_s": 45,
+  "spawn_rate": 25.0,
+  "seeded_chunks": 0,
+  "requests": 1050,
+  "failures": 0,
+  "rps": 18.389,
+  "latency_ms": {
+    "min": 21.062,
+    "median": 27,
+    "p50": 27,
+    "p95": 120,
+    "p99": 170,
+    "max": 266.851,
+    "avg": 53.59567238095235
+  },
+  "target_p95_ms": 2000,
+  "pass": true
+}

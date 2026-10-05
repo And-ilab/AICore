@@ -1,0 +1,11 @@
+{
+  "mockupRole": "assistant_user",
+  "mainTab": "assistant",
+  "ocrSubTab": "queue",
+  "panelOpen": true,
+  "panelWidthPx": 560,
+  "panelHeightPx": 560,
+  "panelPinned": false,
+  "suflerMode": "consult",
+  "suflerEnabled": true
+}

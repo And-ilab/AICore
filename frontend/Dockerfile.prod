@@ -1,0 +1,34 @@
+# Production-style frontend image for TEST/PROD Compose.
+# Build: npm ci && vite build → serve with nginx (proxies /api to backend).
+#
+# Optional TEST mock login (baked at build time — Vite only reads VITE_* then):
+#   --build-arg VITE_ALLOW_DEV_LOGIN=1
+#   --build-arg VITE_DEV_AUTH_PASSWORD=...
+#   --build-arg VITE_DEV_AUTH_USER=dev-role-01
+
+FROM node:22-alpine AS build
+WORKDIR /app
+
+ARG VITE_ALLOW_DEV_LOGIN=
+ARG VITE_DEV_AUTH_USER=dev-role-01
+ARG VITE_DEV_AUTH_PASSWORD=
+ARG VITE_DEV_RBAC_ROLES=
+ARG VITE_SUFLER_DEMO=
+
+ENV VITE_ALLOW_DEV_LOGIN=$VITE_ALLOW_DEV_LOGIN \
+    VITE_DEV_AUTH_USER=$VITE_DEV_AUTH_USER \
+    VITE_DEV_AUTH_PASSWORD=$VITE_DEV_AUTH_PASSWORD \
+    VITE_DEV_RBAC_ROLES=$VITE_DEV_RBAC_ROLES \
+    VITE_SUFLER_DEMO=$VITE_SUFLER_DEMO
+
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM nginx:1.27-alpine
+COPY nginx.prod.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+HEALTHCHECK --interval=15s --timeout=3s --retries=5 \
+  CMD wget -qO- http://127.0.0.1/healthz || exit 1

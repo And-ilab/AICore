@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt ruff
+
+      - name: Run Ruff
+        run: ruff check backend tests dashboard/app recognizer
+
+  test:
+    name: Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            tests/acceptance/load/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt -r tests/acceptance/load/requirements.txt pytest
+
+      - name: Apply migrations
+        run: python backend/manage.py migrate --noinput
+
+      - name: Run tests
+        run: pytest tests -v
+
+  # FR-CC-10 regression gate (extends P0-03 CI): Contact-center smoke on every PR.
+  acceptance-smoke:
+    name: Acceptance smoke (FR-CC-10)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest
+
+      - name: Apply migrations
+        run: python backend/manage.py migrate --noinput
+
+      - name: Run SUF-T-01 and CHAT-T-04
+        run: >
+          pytest -v
+          tests/acceptance/test_suf_t.py::SufTSmokeAcceptanceTest::test_suf_t_01_telephony_hints_after_client_utterance
+          tests/acceptance/test_chat_t.py::ChatTSmokeAcceptanceTest::test_chat_t_04_arm_sufler_hint_with_article_title
+
+  # P8-09: canvas-registry visual regression. Fails PR when PNG diff > 0.1%.
+  # Run inside the Playwright image so Chromium/fonts match snapshot generation
+  # (avoids amd64 host vs arm64/local drift on Mac contributors).
+  ui-visual:
+    name: UI visual (P8-09)
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-jammy
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run canvas visual regression
+        run: npx playwright test --project=visual
+        env:
+          CI: true

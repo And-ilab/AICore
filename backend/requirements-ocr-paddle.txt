@@ -1,0 +1,7 @@
+# Optional OCR upgrade. Not required for tests: engine falls back to Tesseract.
+# Install into the backend image / venv when you want Paddle on real scans:
+#   pip install -r requirements-ocr-paddle.txt
+setuptools>=69
+paddlepaddle>=2.6.2,<3
+paddleocr>=2.7.3,<3
+numpy>=1.26,<3

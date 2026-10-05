@@ -1,0 +1,216 @@
+{
+  "schema_version": "1.0",
+  "id": "qu-cc-semantic-pairs",
+  "version": "1.0",
+  "description": "CC-SCR-derived pairs for synonyms, antonyms, and word-order sensitivity.",
+  "modules": ["qu"],
+  "tasks": ["synonym-match", "antonym-rejection", "word-order-sensitivity"],
+  "status": "ready",
+  "source": {
+    "type": "derived",
+    "path": "benchmarks/datasets/cc_scenarios.json",
+    "requirements": ["FR-UND-04", "FR-UND-06"]
+  },
+  "samples": [
+    {
+      "id": "QU-SYN-001",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-001",
+      "reference": "Несовершеннолетний хочет открыть счёт",
+      "candidate": "Можно ли завести банковский счёт в четырнадцать лет?",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-001",
+      "status": "ready"
+    },
+    {
+      "id": "QU-SYN-002",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-002",
+      "reference": "Я хочу открыть счёт внуку, ему 6 лет?",
+      "candidate": "Как оформить вклад на имя шестилетнего внука?",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-002",
+      "status": "ready"
+    },
+    {
+      "id": "QU-SYN-003",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-003",
+      "reference": "Хочу оплачивать за покупки телефоном?",
+      "candidate": "Как рассчитаться смартфоном через NFC?",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-003",
+      "status": "ready"
+    },
+    {
+      "id": "QU-SYN-004",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-004",
+      "reference": "Хочу оформить кредит на автомобиль",
+      "candidate": "Мне нужно финансирование для покупки машины",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-004",
+      "status": "ready"
+    },
+    {
+      "id": "QU-SYN-005",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-005",
+      "reference": "Мне нужно отправить деньги в РФ?",
+      "candidate": "Каким способом перевести средства человеку в России?",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-005",
+      "status": "ready"
+    },
+    {
+      "id": "QU-SYN-006",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-006",
+      "reference": "У вас был пин-код ранее?",
+      "candidate": "Как восстановить забытый код банковской карты?",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-006",
+      "status": "ready"
+    },
+    {
+      "id": "QU-SYN-007",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-007",
+      "reference": "Мне нужна выписка со счёта для подачи документов на визу?",
+      "candidate": "Где получить банковскую справку для посольства?",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-007",
+      "status": "ready"
+    },
+    {
+      "id": "QU-SYN-008",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-008",
+      "reference": "У меня заканчивается срок вклада по системе строительных сбережений, что необходимо делать?",
+      "candidate": "Что делать после завершения накопительного периода на жильё?",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-008",
+      "status": "ready"
+    },
+    {
+      "id": "QU-SYN-009",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-009",
+      "reference": "Мне нужно перечислить деньги на криптобиржу?",
+      "candidate": "Можно ли пополнить криптовалютную площадку с карты?",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-009",
+      "status": "ready"
+    },
+    {
+      "id": "QU-SYN-010",
+      "category": "synonyms",
+      "source_scenario_id": "CC-SCR-010",
+      "reference": "Мне нужно проверить российские рубли?",
+      "candidate": "Банк проверяет подлинность купюр РФ?",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-010",
+      "status": "ready"
+    },
+    {
+      "id": "QU-ANT-001",
+      "category": "antonyms",
+      "source_scenario_id": "CC-SCR-001",
+      "reference": "Несовершеннолетний хочет открыть счёт",
+      "candidate": "Несовершеннолетний хочет закрыть существующий счёт",
+      "expected_match": false,
+      "expected_intent_id": null,
+      "status": "ready"
+    },
+    {
+      "id": "QU-ANT-002",
+      "category": "antonyms",
+      "source_scenario_id": "CC-SCR-005",
+      "reference": "Мне нужно отправить деньги в РФ?",
+      "candidate": "Мне должны прислать деньги из России в Беларусь",
+      "expected_match": false,
+      "expected_intent_id": null,
+      "status": "ready"
+    },
+    {
+      "id": "QU-ANT-003",
+      "category": "antonyms",
+      "source_scenario_id": "CC-SCR-006",
+      "reference": "Я забыл ПИН-код и хочу его сменить",
+      "candidate": "Я помню ПИН-код и не хочу его менять",
+      "expected_match": false,
+      "expected_intent_id": null,
+      "status": "ready"
+    },
+    {
+      "id": "QU-ANT-004",
+      "category": "antonyms",
+      "source_scenario_id": "CC-SCR-007",
+      "reference": "Мне нужна выписка со счёта для визы",
+      "candidate": "Мне не нужна выписка и я не подаю документы на визу",
+      "expected_match": false,
+      "expected_intent_id": null,
+      "status": "ready"
+    },
+    {
+      "id": "QU-ANT-005",
+      "category": "antonyms",
+      "source_scenario_id": "CC-SCR-008",
+      "reference": "Заканчивается срок вклада по строительным сбережениям",
+      "candidate": "Я только что открыл вклад по строительным сбережениям",
+      "expected_match": false,
+      "expected_intent_id": null,
+      "status": "ready"
+    },
+    {
+      "id": "QU-ORD-001",
+      "category": "word_order",
+      "source_scenario_id": "CC-SCR-004",
+      "reference": "Хочу оформить кредит на автомобиль",
+      "candidate": "На автомобиль кредит оформить хочу",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-004",
+      "status": "ready"
+    },
+    {
+      "id": "QU-ORD-002",
+      "category": "word_order",
+      "source_scenario_id": "CC-SCR-007",
+      "reference": "Мне нужна выписка со счёта для визы",
+      "candidate": "Для визы мне со счёта нужна выписка",
+      "expected_match": true,
+      "expected_intent_id": "CC-SCR-007",
+      "status": "ready"
+    },
+    {
+      "id": "QU-ORD-003",
+      "category": "word_order",
+      "source_scenario_id": "CC-SCR-005",
+      "reference": "Клиент переводит деньги получателю в России",
+      "candidate": "Получатель в России переводит деньги клиенту",
+      "expected_match": false,
+      "expected_intent_id": null,
+      "status": "ready"
+    },
+    {
+      "id": "QU-ORD-004",
+      "category": "word_order",
+      "source_scenario_id": "CC-SCR-003",
+      "reference": "Клиент оплачивает покупку телефоном",
+      "candidate": "Телефон оплачивает покупку клиентом",
+      "expected_match": false,
+      "expected_intent_id": null,
+      "status": "ready"
+    },
+    {
+      "id": "QU-ORD-005",
+      "category": "word_order",
+      "source_scenario_id": "CC-SCR-010",
+      "reference": "Банк проверяет российские рубли",
+      "candidate": "Российские рубли проверяют банк",
+      "expected_match": false,
+      "expected_intent_id": null,
+      "status": "ready"
+    }
+  ]
+}

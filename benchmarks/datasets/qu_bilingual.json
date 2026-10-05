@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.0",
+  "id": "qu-cc-bilingual-pairs",
+  "version": "1.0",
+  "description": "RU/EN formulations that must resolve to the same CC-SCR intent.",
+  "modules": ["qu"],
+  "tasks": ["bilingual-intent-match", "cross-language-consistency"],
+  "status": "ready",
+  "source": {
+    "type": "derived",
+    "path": "benchmarks/datasets/cc_scenarios.json",
+    "requirements": ["FR-UND-05"],
+    "acceptance": ["SUF-T-12"]
+  },
+  "samples": [
+    {
+      "id": "QU-BI-001",
+      "source_scenario_id": "CC-SCR-001",
+      "ru_text": "Можно ли открыть счёт в четырнадцать лет?",
+      "en_text": "Can a fourteen-year-old open a bank account?",
+      "expected_intent_id": "CC-SCR-001",
+      "status": "ready"
+    },
+    {
+      "id": "QU-BI-002",
+      "source_scenario_id": "CC-SCR-002",
+      "ru_text": "Как открыть вклад на имя шестилетнего внука?",
+      "en_text": "How can I open a deposit for my six-year-old grandchild?",
+      "expected_intent_id": "CC-SCR-002",
+      "status": "ready"
+    },
+    {
+      "id": "QU-BI-003",
+      "source_scenario_id": "CC-SCR-003",
+      "ru_text": "Как оплачивать покупки телефоном?",
+      "en_text": "How can I pay for purchases with my phone?",
+      "expected_intent_id": "CC-SCR-003",
+      "status": "ready"
+    },
+    {
+      "id": "QU-BI-004",
+      "source_scenario_id": "CC-SCR-004",
+      "ru_text": "Хочу оформить кредит на автомобиль.",
+      "en_text": "I would like to apply for a car loan.",
+      "expected_intent_id": "CC-SCR-004",
+      "status": "ready"
+    },
+    {
+      "id": "QU-BI-005",
+      "source_scenario_id": "CC-SCR-005",
+      "ru_text": "Как отправить деньги получателю в России?",
+      "en_text": "How can I send money to a recipient in Russia?",
+      "expected_intent_id": "CC-SCR-005",
+      "status": "ready"
+    },
+    {
+      "id": "QU-BI-006",
+      "source_scenario_id": "CC-SCR-006",
+      "ru_text": "Я забыл ПИН-код банковской карты.",
+      "en_text": "I forgot my bank card PIN.",
+      "expected_intent_id": "CC-SCR-006",
+      "status": "ready"
+    },
+    {
+      "id": "QU-BI-007",
+      "source_scenario_id": "CC-SCR-007",
+      "ru_text": "Мне нужна выписка со счёта для визы.",
+      "en_text": "I need an account statement for my visa application.",
+      "expected_intent_id": "CC-SCR-007",
+      "status": "ready"
+    },
+    {
+      "id": "QU-BI-008",
+      "source_scenario_id": "CC-SCR-008",
+      "ru_text": "Что делать после окончания срока строительных сбережений?",
+      "en_text": "What should I do when my construction savings term ends?",
+      "expected_intent_id": "CC-SCR-008",
+      "status": "ready"
+    },
+    {
+      "id": "QU-BI-009",
+      "source_scenario_id": "CC-SCR-009",
+      "ru_text": "Можно ли перевести деньги на криптобиржу?",
+      "en_text": "Can I transfer money to a cryptocurrency exchange?",
+      "expected_intent_id": "CC-SCR-009",
+      "status": "ready"
+    },
+    {
+      "id": "QU-BI-010",
+      "source_scenario_id": "CC-SCR-010",
+      "ru_text": "Где проверить российские рубли на подлинность?",
+      "en_text": "Where can I verify that Russian banknotes are genuine?",
+      "expected_intent_id": "CC-SCR-010",
+      "status": "ready"
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+# IV.8 / FR-OCR-14 — validation templates per doc_type (§6.1.14).
+# Editable without code changes; version bumps create a new template_version.
+
+validator_version: "1.0"
+
+document_types:
+  passport:
+    template_version: "4"
+    title: "Паспорт"
+    required_fields: [surname, given_name, number]
+    confidence_min: 0.6
+    fields:
+      surname:
+        type: string
+        min_length: 2
+        max_length: 80
+      given_name:
+        type: string
+        min_length: 2
+        max_length: 80
+      series:
+        type: string
+        pattern: "^([A-ZА-Я]{2}|\\d{2}\\s?\\d{2})$"
+        required: false
+      number:
+        type: string
+        pattern: "^\\d{6,7}$"
+      birth_date:
+        type: date
+        formats: ["%d.%m.%Y", "%Y-%m-%d"]
+        required: false
+      issue_date:
+        type: date
+        formats: ["%d.%m.%Y", "%Y-%m-%d"]
+        required: false
+
+  payment_order:
+    template_version: "3"
+    title: "Платёжное поручение"
+    required_fields:
+      [document_number, date, payer, beneficiary, amount, purpose]
+    confidence_min: 0.6
+    fields:
+      document_number:
+        type: string
+        pattern: "^\\d{1,10}$"
+      date:
+        type: date
+        formats: ["%d.%m.%Y", "%Y-%m-%d"]
+      payer:
+        type: string
+        min_length: 2
+      beneficiary:
+        type: string
+        min_length: 2
+      amount:
+        type: money
+        min: 0.01
+      purpose:
+        type: string
+        min_length: 3
+      currency:
+        type: enum
+        values: [BYN, USD, EUR, RUB]
+        required: false
+
+  account_statement:
+    template_version: "1"
+    title: "Банковская выписка"
+    required_fields:
+      [account_number, currency, period, opening_balance, closing_balance]
+    confidence_min: 0.55
+    fields:
+      account_number:
+        type: string
+        pattern: "^BY[0-9A-Z]{26}$"
+      currency:
+        type: enum
+        values: [BYN, USD, EUR, RUB]
+      period:
+        type: string
+        min_length: 5
+      opening_balance:
+        type: money
+      closing_balance:
+        type: money
+
+  loan_agreement:
+    template_version: "1"
+    title: "Договор"
+    required_fields:
+      [agreement_number, agreement_date, principal, interest_rate, term]
+    confidence_min: 0.6
+    fields:
+      agreement_number:
+        type: string
+        min_length: 3
+      agreement_date:
+        type: date
+        formats: ["%d.%m.%Y", "%Y-%m-%d"]
+      principal:
+        type: money
+        min: 1
+      interest_rate:
+        type: number
+        min: 0
+        max: 100
+      term:
+        type: integer
+        min: 1
+        max: 600
+
+  banking_application:
+    template_version: "1"
+    title: "Заявление / анкета"
+    required_fields:
+      [application_number, application_date, product, signature_present]
+    confidence_min: 0.5
+    fields:
+      application_number:
+        type: string
+        min_length: 3
+      application_date:
+        type: date
+        formats: ["%d.%m.%Y", "%Y-%m-%d"]
+      product:
+        type: string
+        min_length: 2
+      signature_present:
+        type: boolean
+
+  payment_receipt:
+    template_version: "1"
+    title: "Квитанция"
+    required_fields: [operation_date, operation_id, amount, currency, status]
+    confidence_min: 0.55
+    fields:
+      operation_date:
+        type: date
+        formats: ["%d.%m.%Y", "%Y-%m-%d"]
+      operation_id:
+        type: string
+        min_length: 3
+      amount:
+        type: money
+        min: 0
+      currency:
+        type: enum
+        values: [BYN, USD, EUR, RUB]
+      status:
+        type: enum
+        values: [выполнено, completed, pending, failed]

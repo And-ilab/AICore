@@ -1,0 +1,336 @@
+{
+  "info": {
+    "name": "Sufler OCR — сторонний интегратор",
+    "description": "Демо: вы — внешняя система, дергаете OCR API банка.\n\nПорядок:\n0) Войти один раз (dev-role-12)\n1) Выбрать ОДИН скан из папки «1. Загрузить скан» (10 примеров из тест1\\доки) → Send\n2) GET статус, пока completed / progress 100\n3) GET результат полей\n4) POST утвердить\n\nНе гоняйте все 10 подряд без шагов 2–3: каждый upload перезаписывает job_id.\nСервер: http://127.0.0.1:8001. Пароль уже в переменной password.\nФайлы: C:\\Users\\user\\Desktop\\тест1\\доки. Если Postman спросит файл — укажите тот же PNG (копии в docs/api/ocr-demo/).\n409 на шаге 3 = рано, крутите шаг 2.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "sufler-ocr-integrator-demo"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8001" },
+    { "key": "username", "value": "dev-role-12" },
+    { "key": "password", "value": "replace-with-dev-only-password" },
+    { "key": "job_id", "value": "" },
+    { "key": "document_type", "value": "payment_order" },
+    {
+      "key": "approve_fields",
+      "value": "{\n  \"document_number\": \"1047\",\n  \"date\": \"09.09.2026\",\n  \"payer\": \"ООО Ромашка\",\n  \"beneficiary\": \"ОАО Беларусбанк\",\n  \"amount\": \"1500.00\",\n  \"purpose\": \"Оплата по договору\",\n  \"currency\": \"BYN\"\n}"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const csrf = pm.cookies.get('csrftoken');",
+          "if (csrf) {",
+          "  pm.request.headers.upsert({ key: 'X-CSRFToken', value: csrf });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Войти как OCR-оператор",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.sendRequest({",
+              "  url: pm.collectionVariables.get('base_url') + '/api/auth/me/',",
+              "  method: 'GET'",
+              "}, function () {});"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('login ok', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "  pm.expect(body.ok).to.eql(true);",
+              "  pm.expect(body.username).to.eql('dev-role-12');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/api/auth/login/",
+        "description": "Один раз за сессию. 200 и username=dev-role-12. Дальше cookie сама едет на шаги 1–4."
+      }
+    },
+    {
+      "name": "1. Загрузить скан — 10 примеров из тест1",
+      "description": "Каждый запрос = тот же POST /api/v1/ocr/jobs/, другой файл. После Send → шаги 2, 3, 4.",
+      "item": [
+        {
+          "name": "01. Заявление открытие счёта",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/01_zayavlenie_otkrytie_scheta.png" },
+                { "key": "mode", "type": "text", "value": "template" },
+                { "key": "doc_type", "type": "text", "value": "banking_application" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "01_zayavlenie_otkrytie_scheta.png · шаблон banking_application (заявление)."
+          }
+        },
+        {
+          "name": "02. Заявление выпуск карты",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/02_zayavlenie_vypusk_karty.png" },
+                { "key": "mode", "type": "text", "value": "template" },
+                { "key": "doc_type", "type": "text", "value": "banking_application" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "02_zayavlenie_vypusk_karty.png · шаблон banking_application."
+          }
+        },
+        {
+          "name": "03. Заявление на кредит",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/03_zayavlenie_kredit.png" },
+                { "key": "mode", "type": "text", "value": "template" },
+                { "key": "doc_type", "type": "text", "value": "banking_application" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "03_zayavlenie_kredit.png · шаблон banking_application."
+          }
+        },
+        {
+          "name": "04. Квитанция оплата",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/04_kvitanciya_oplata.png" },
+                { "key": "mode", "type": "text", "value": "template" },
+                { "key": "doc_type", "type": "text", "value": "payment_receipt" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "04_kvitanciya_oplata.png · шаблон payment_receipt (квитанция)."
+          }
+        },
+        {
+          "name": "05. Квитанция перевод",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/05_kvitanciya_perevod.png" },
+                { "key": "mode", "type": "text", "value": "template" },
+                { "key": "doc_type", "type": "text", "value": "payment_receipt" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "05_kvitanciya_perevod.png · шаблон payment_receipt."
+          }
+        },
+        {
+          "name": "06. Справка остаток (ML)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/06_spravka_ostatok.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "06_spravka_ostatok.png · mode=ml, отдельного шаблона «справка» нет, тип угадает сервер."
+          }
+        },
+        {
+          "name": "07. Справка вклад (ML)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/07_spravka_vklad.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "07_spravka_vklad.png · mode=ml."
+          }
+        },
+        {
+          "name": "08. Выписка по счёту",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/08_vypiska_scheta.png" },
+                { "key": "mode", "type": "text", "value": "template" },
+                { "key": "doc_type", "type": "text", "value": "account_statement" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "08_vypiska_scheta.png · шаблон account_statement (выписка)."
+          }
+        },
+        {
+          "name": "09. Платёжное поручение",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/09_platezhnoe_poruchenie.png" },
+                { "key": "mode", "type": "text", "value": "template" },
+                { "key": "doc_type", "type": "text", "value": "payment_order" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "09_platezhnoe_poruchenie.png · шаблон payment_order."
+          }
+        },
+        {
+          "name": "10. Кредитный договор",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const body = pm.response.json(); if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); } if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); } }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки/10_kreditnyy_dogovor.png" },
+                { "key": "mode", "type": "text", "value": "template" },
+                { "key": "doc_type", "type": "text", "value": "loan_agreement" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "10_kreditnyy_dogovor.png · шаблон loan_agreement (договор)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. GET Статус задания",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": "{{base_url}}/api/v1/ocr/jobs/{{job_id}}/",
+        "description": "Жмите Send, пока status=completed и progress=100. Потом шаг 3. 409 на шаге 3 = ещё рано."
+      }
+    },
+    {
+      "name": "3. GET Результат полей",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  if (body.document_type) { pm.collectionVariables.set('document_type', body.document_type); }",
+              "  const raw = body.fields || {};",
+              "  const fields = {};",
+              "  Object.keys(raw).forEach(function (key) {",
+              "    const v = raw[key];",
+              "    fields[key] = (v && typeof v === 'object' && 'value' in v) ? v.value : v;",
+              "  });",
+              "  if (Object.keys(fields).length) {",
+              "    pm.collectionVariables.set('approve_fields', JSON.stringify(fields, null, 2));",
+              "  }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": "{{base_url}}/api/v1/ocr/jobs/{{job_id}}/result/",
+        "description": "200 = поля. 409 not_ready = вернитесь на шаг 2."
+      }
+    },
+    {
+      "name": "4. POST Утвердить поля",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"document_type\": \"{{document_type}}\",\n  \"fields\": {{approve_fields}}\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/api/v1/ocr/jobs/{{job_id}}/approve/",
+        "description": "После шага 3 тело подставится само. 200 = approved."
+      }
+    }
+  ]
+}

@@ -1,0 +1,751 @@
+{
+  "info": {
+    "name": "Sufler AI Hub API",
+    "description": "Integrator-facing OpenAPI for приёмка and Postman. Covers `/api/v1/assistant` (III.7 / III.10.2), `/api/v1/sufler` (FR-CC-03 / II.3.5.5), `/api/v1/knowledge` (SUZ ingest INT-01…09), and `/api/v1/ocr` (P6-01a, §6.1.4 / §6.1.17).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "sufler-ai-hub-v1"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "base_host",
+      "value": "127.0.0.1"
+    },
+    {
+      "key": "base_port",
+      "value": "8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "suz_hmac_signature",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "assistant",
+      "item": [
+        {
+          "name": "Stream assistant reply (SSE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/chat",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "chat"
+              ],
+              "query": []
+            },
+            "description": "OpenAI-compatible SSE from ModelGateway profile `assistant_bank`. Requires `assistant.use`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Нужна справка о вкладе\",\n  \"session_id\": \"sess-demo-1\",\n  \"stream\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "FR-RPT-ASS catalog",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/reports/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "reports"
+              ],
+              "query": []
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Assistant usage / feedback analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/reports/analytics/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "reports",
+                "analytics"
+              ],
+              "query": [
+                {
+                  "key": "date_from",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "date_to",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "department",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Export analytics CSV/XLSX (FR-RPT-ASS-07)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/reports/export/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "reports",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "date_from",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "date_to",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Single FR-RPT-ASS section",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assistant/reports/{report_id}/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "assistant",
+                "reports",
+                ":report_id"
+              ],
+              "query": []
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "ingest",
+      "item": [
+        {
+          "name": "SUZ Model B webhook (INT-01…05, INT-07)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Sufler-Event-Id",
+                "value": "",
+                "description": "Must match body event_id when present"
+              },
+              {
+                "key": "X-Sufler-Signature",
+                "value": "{{suz_hmac_signature}}",
+                "description": "HMAC-SHA256(raw body, shared secret)"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/events",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "events"
+              ],
+              "query": []
+            },
+            "description": "HMAC required when `SUZ_WEBHOOK_HMAC_SECRET` is set. In `SUZ_INGEST_MODE=prod` the secret is mandatory.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "INT-09 reconcile cursor status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/reconcile/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "reconcile"
+              ],
+              "query": []
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Trigger INT-09 Bitrix changes poll",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/reconcile/run/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "reconcile",
+                "run"
+              ],
+              "query": [
+                {
+                  "key": "async",
+                  "value": "",
+                  "description": "Queue Celery task when 1/true",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "ocr",
+      "item": [
+        {
+          "name": "Enqueue OCR job (multipart)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/ocr/jobs/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "ocr",
+                "jobs"
+              ],
+              "query": []
+            },
+            "description": "Upload a scan (pdf/jpg/png/tiff). Pass `doc_type` with `mode=template`, or `mode=ml` for auto-detect. Requires `ocr.use`. Async only — poll GET /jobs/{id}/.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "description": "",
+                  "src": ""
+                },
+                {
+                  "key": "doc_type",
+                  "type": "text",
+                  "description": "Document type / template id",
+                  "value": "passport"
+                },
+                {
+                  "key": "document_type",
+                  "type": "text",
+                  "description": "Alias for doc_type",
+                  "value": ""
+                },
+                {
+                  "key": "mode",
+                  "type": "text",
+                  "description": "template requires doc_type; ml auto-detects type",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "OCR job status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/ocr/jobs/{id}/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "ocr",
+                "jobs",
+                ":id"
+              ],
+              "query": []
+            },
+            "description": "status, progress (0–100), error. Requires `ocr.use`."
+          }
+        },
+        {
+          "name": "Approve / edit OCR fields (optional stub)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/ocr/jobs/{id}/approve/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "ocr",
+                "jobs",
+                ":id",
+                "approve"
+              ],
+              "query": []
+            },
+            "description": "Optional HITL confirm. Full HITL UI is P6-02. Requires `ocr.use`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "OCR fields JSON",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/ocr/jobs/{id}/result/",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "ocr",
+                "jobs",
+                ":id",
+                "result"
+              ],
+              "query": []
+            },
+            "description": "Structured fields with confidence. 409 if the job is not completed."
+          }
+        }
+      ]
+    },
+    {
+      "name": "sufler",
+      "item": [
+        {
+          "name": "Enter a suggested scenario from the operator lamp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sufler/scenario/enter",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "sufler",
+                "scenario",
+                "enter"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Leave the active scenario and return to knowledge base",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sufler/scenario/exit",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "sufler",
+                "scenario",
+                "exit"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Ranked operator hints (FR-CC-03 / FR-CC-14)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sufler/suggest",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "sufler",
+                "suggest"
+              ],
+              "query": []
+            },
+            "description": "Requires `sufler.telephony` or `sufler.chat`. Returns hints with %% relevance and SUZ citations.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"как оформить дебетовую карту\",\n  \"limit\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Internal KC test-dialog (II.3.5.5)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "description": "Optional bearer"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sufler/test-dialog",
+              "protocol": "http",
+              "host": [
+                "{{base_host}}"
+              ],
+              "port": "{{base_port}}",
+              "path": [
+                "api",
+                "v1",
+                "sufler",
+                "test-dialog"
+              ],
+              "query": []
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Какие документы для вклада?\",\n  \"scenario_id\": \"CC-SCR-008\",\n  \"use_pipeline\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

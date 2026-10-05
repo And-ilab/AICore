@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}История чата - Беларусбанк{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1><i class="fas fa-history"></i> История диалога</h1>
+                <p class="text-muted">
+                    {{ chat_session.client.full_name }} • 
+                    {{ chat_session.get_channel_display }} • 
+                    {{ chat_session.created_at|date:"d.m.Y H:i" }}
+                </p>
+            </div>
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Назад к дашборду
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="chat-history-container" style="max-height: 600px; overflow-y: auto;">
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="mb-3 {% if message.message_type == 'client' %}text-end{% endif %}">
+                            <div class="d-flex {% if message.message_type == 'client' %}justify-content-end{% endif %}">
+                                <div class="{% if message.message_type == 'client' %}bg-primary text-white{% elif message.message_type == 'operator' %}bg-success text-white{% else %}bg-light{% endif %} p-3 rounded" style="max-width: 70%;">
+                                    <div class="small">
+                                        <strong>{{ message.sender_name }}</strong>
+                                        <span class="ms-2 opacity-75">{{ message.timestamp|date:"H:i" }}</span>
+                                    </div>
+                                    <div class="mt-1">
+                                        {{ message.content }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">В этом диалоге пока нет сообщений</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

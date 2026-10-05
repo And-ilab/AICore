@@ -1,0 +1,698 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Чат с клиентом - Беларусбанк{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Стили из предыдущей версии интерфейса */
+    :root {
+        --primary: #0D3880;
+        --primary-dark: #0A2A66;
+        --primary-light: #1E4FA5;
+        --secondary: #E31E24;
+        --success: #2E7D32;
+        --warning: #F9A825;
+        --light: #F5F7FA;
+        --dark: #1A237E;
+        --gray: #5D6C89;
+        --light-gray: #E8ECF3;
+        --border-radius: 8px;
+        --shadow: 0 4px 12px rgba(13, 56, 128, 0.1);
+        --transition: all 0.3s ease;
+    }
+
+    .main-container {
+        display: flex;
+        flex: 1;
+        padding: 1.5rem;
+        gap: 1.5rem;
+        max-width: 1600px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    .interface-card {
+        flex: 1;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--light-gray);
+    }
+
+    .card-header {
+        background: linear-gradient(to right, var(--primary), var(--primary-dark));
+        color: white;
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 2px solid var(--secondary);
+    }
+
+    .card-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .card-icon {
+        background: rgba(255, 255, 255, 0.15);
+        width: 45px;
+        height: 45px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+
+    .card-badge {
+        background: var(--secondary);
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .card-content {
+        padding: 1.25rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        min-height: 0;
+    }
+
+    .chat-container {
+        background: var(--light);
+        border-radius: var(--border-radius);
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid var(--light-gray);
+    }
+
+    .chat-header {
+        padding: 0.9rem 1.25rem;
+        background: white;
+        border-bottom: 1px solid var(--light-gray);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .chat-title {
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--primary);
+    }
+
+    .chat-status {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--success);
+        font-weight: 600;
+    }
+
+    .status-indicator {
+        width: 8px;
+        height: 8px;
+        background: var(--success);
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    .messages-container {
+        flex: 1;
+        padding: 1.25rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+        min-height: 0;
+    }
+
+    .message {
+        max-width: 85%;
+        padding: 0.9rem;
+        border-radius: var(--border-radius);
+        line-height: 1.4;
+        position: relative;
+        animation: fadeIn 0.3s ease;
+        font-size: 0.95rem;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message-user {
+        align-self: flex-end;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        border-bottom-right-radius: 3px;
+    }
+
+    .message-bot {
+        align-self: flex-start;
+        background: white;
+        color: #333;
+        border: 1px solid var(--light-gray);
+        border-bottom-left-radius: 3px;
+    }
+
+    .message-operator {
+        align-self: flex-start;
+        background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+        color: white;
+        border-bottom-left-radius: 3px;
+    }
+
+    .message-time {
+        font-size: 0.7rem;
+        opacity: 0.8;
+        margin-top: 0.4rem;
+        text-align: right;
+    }
+
+    .message-bot .message-time, .message-operator .message-time {
+        text-align: left;
+    }
+
+    .message-sender {
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+        color: var(--primary);
+    }
+
+    .message-user .message-sender {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .input-container {
+        padding: 1rem;
+        background: white;
+        border-top: 1px solid var(--light-gray);
+        display: flex;
+        gap: 0.8rem;
+        align-items: center;
+    }
+
+    .message-input {
+        flex: 1;
+        padding: 0.8rem 1.2rem;
+        border: 1px solid var(--light-gray);
+        border-radius: 50px;
+        font-size: 0.95rem;
+        outline: none;
+        transition: var(--transition);
+        background: #f8fafc;
+    }
+
+    .message-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(13, 56, 128, 0.1);
+    }
+
+    .send-button {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        border: none;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: var(--transition);
+        box-shadow: 0 3px 8px rgba(13, 56, 128, 0.2);
+    }
+
+    .send-button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(13, 56, 128, 0.3);
+    }
+
+    .ai-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: linear-gradient(135deg, var(--primary-light) 0%, #2A5298 100%);
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-left: 1rem;
+    }
+
+    .prompter-box {
+        background: rgba(13, 56, 128, 0.08);
+        padding: 0.7rem;
+        border-radius: 6px;
+        margin-top: 0.4rem;
+        border-left: 3px solid var(--primary);
+    }
+
+    .prompter-title {
+        font-weight: 600;
+        color: var(--primary);
+        margin-bottom: 0.3rem;
+        font-size: 0.85rem;
+    }
+
+    .channels-container {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+
+    .channel-tab {
+        flex: 1;
+        min-width: 110px;
+        background: var(--light);
+        border: 1px solid var(--light-gray);
+        border-radius: 6px;
+        padding: 0.7rem 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: var(--transition);
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .channel-tab:hover {
+        background: #e3eaf2;
+    }
+
+    .channel-tab.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        box-shadow: 0 2px 8px rgba(13, 56, 128, 0.2);
+    }
+
+    .phone-call-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background: var(--light);
+        border-radius: var(--border-radius);
+        gap: 1.25rem;
+        text-align: center;
+        height: 100%;
+        min-height: 400px;
+    }
+
+    .call-avatar {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2rem;
+        color: white;
+        margin-bottom: 1rem;
+        box-shadow: 0 6px 16px rgba(13, 56, 128, 0.25);
+    }
+
+    .call-timer {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--primary);
+        background: white;
+        padding: 0.4rem 1.2rem;
+        border-radius: 50px;
+        border: 1px solid var(--light-gray);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    .call-controls {
+        display: flex;
+        gap: 0.8rem;
+        margin-top: 1rem;
+    }
+
+    .call-button {
+        width: 55px;
+        height: 55px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        cursor: pointer;
+        transition: var(--transition);
+        border: none;
+        color: white;
+    }
+
+    .call-button.end {
+        background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%);
+        box-shadow: 0 3px 8px rgba(227, 30, 36, 0.25);
+    }
+
+    .call-button.end:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px rgba(227, 30, 36, 0.35);
+    }
+
+    .call-button.mute {
+        background: linear-gradient(135deg, var(--warning) 0%, #E89C00 100%);
+        box-shadow: 0 3px 8px rgba(249, 168, 37, 0.25);
+    }
+
+    .call-button.mute:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 12px rgba(249, 168, 37, 0.35);
+    }
+
+    .empty-chat-message {
+        text-align: center;
+        padding: 2rem;
+        color: var(--gray);
+        font-style: italic;
+    }
+
+    .transcription-container {
+        background: rgba(13, 56, 128, 0.03);
+        padding: 0.9rem;
+        border-top: 2px dashed var(--primary-light);
+        max-height: 180px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        margin-top: auto;
+    }
+
+    .transcription-message {
+        background: white;
+        border-radius: 6px;
+        padding: 0.7rem;
+        border-left: 3px solid var(--warning);
+        animation: slideIn 0.3s ease;
+        font-size: 0.85rem;
+    }
+
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(-15px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
+    .channel-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: var(--light-gray);
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        color: var(--primary);
+        margin-left: 0.5rem;
+    }
+
+    .recommendation-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+        justify-content: flex-end;
+    }
+
+    .recommendation-btn {
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .recommendation-btn.send {
+        background: linear-gradient(135deg, var(--success) 0%, #1B5E20 100%);
+        color: white;
+    }
+
+    .recommendation-btn.reject {
+        background: linear-gradient(135deg, var(--secondary) 0%, #B71C1C 100%);
+        color: white;
+    }
+
+    .recommendation-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    @media (max-width: 1200px) {
+        .main-container {
+            flex-direction: column;
+        }
+
+        .interface-card {
+            min-height: 550px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .main-container {
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .channels-container {
+            flex-direction: column;
+        }
+
+        .channel-tab {
+            min-width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-container">
+    <!-- Интерфейс для клиента -->
+    <div class="interface-card">
+        <div class="card-header">
+            <div class="card-title">
+                <div class="card-icon">
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                <span>Интерфейс клиента</span>
+            </div>
+            <div class="card-badge" id="client-status">Online</div>
+        </div>
+
+        <div class="card-content">
+            <!-- Выбор канала связи -->
+            <div>
+                <h3 style="margin-bottom: 0.7rem; color: var(--primary); font-size: 1.1rem;">Канал связи</h3>
+                <div class="channels-container" id="channels-container">
+                    <div class="channel-tab active" data-channel="chat">
+                        <i class="fas fa-comments channel-icon"></i>
+                        Онлайн-чат
+                    </div>
+                    <div class="channel-tab" data-channel="telegram">
+                        <i class="fab fa-telegram channel-icon"></i>
+                        Telegram
+                    </div>
+                    <div class="channel-tab" data-channel="viber">
+                        <i class="fab fa-viber channel-icon"></i>
+                        Viber
+                    </div>
+                    <div class="channel-tab" data-channel="whatsapp">
+                        <i class="fab fa-whatsapp channel-icon"></i>
+                        WhatsApp
+                    </div>
+                    <div class="channel-tab" data-channel="phone">
+                        <i class="fas fa-phone-alt channel-icon"></i>
+                        Звонок
+                    </div>
+                </div>
+            </div>
+
+            <!-- Чат с ИИ-ассистентом -->
+            <div class="chat-container" id="chat-interface">
+                <div class="chat-header" id="client-chat-header">
+                    <div class="chat-title">
+                        <div class="messenger-name">
+                            <span>Поддержка Беларусбанка</span>
+                            <span class="channel-indicator" id="current-channel-indicator">Чат</span>
+                        </div>
+                    </div>
+                    <div class="chat-status">
+                        <div class="status-indicator"></div>
+                        <span>В сети</span>
+                    </div>
+                </div>
+
+                <!-- Пустой чат по умолчанию -->
+                <div class="messages-container" id="client-chat">
+                    <div class="empty-chat-message" id="empty-client-chat">
+                        <i class="fas fa-comments" style="font-size: 2rem; margin-bottom: 1rem;"></i><br>
+                        Чат пуст<br>
+                        <span style="font-size: 0.9rem;">Начните общение, отправив сообщение</span>
+                    </div>
+                </div>
+
+                <div class="input-container">
+                    <input type="text" class="message-input" id="client-input" placeholder="Введите ваш вопрос...">
+                    <button class="send-button" id="client-send">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Интерфейс телефонного звонка -->
+            <div class="phone-call-container" id="phone-interface" style="display: none;">
+                <div class="call-avatar">
+                    <i class="fas fa-headset"></i>
+                </div>
+                <div class="call-info">Звонок оператору Контакт-центра</div>
+                <div class="call-timer" id="call-timer">00:00</div>
+                <div class="call-info" style="font-size: 0.95rem; color: var(--gray);">Оператор: Мария Иванова</div>
+
+                <div class="call-controls">
+                    <button class="call-button mute" id="toggle-microphone">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button class="call-button hold">
+                        <i class="fas fa-pause"></i>
+                    </button>
+                    <button class="call-button end" id="end-call">
+                        <i class="fas fa-phone-slash"></i>
+                    </button>
+                </div>
+
+                <div id="sufler-status" class="sufler-status" style="display: none;">
+                    <div class="sufler-status-title">
+                        <i class="fas fa-microphone-alt"></i> Суфлер активен
+                    </div>
+                    <div style="font-size: 0.8rem;" id="sufler-details">Распознавание речи в реальном времени...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Интерфейс для оператора -->
+    <div class="interface-card operator-interface">
+        <div class="card-header">
+            <div class="card-title">
+                <div class="card-icon">
+                    <i class="fas fa-headset"></i>
+                </div>
+                <span>Интерфейс оператора</span>
+            </div>
+            <div class="card-badge" id="sufler-badge" style="background: var(--gray);">Суфлёр не активен</div>
+        </div>
+
+        <div class="card-content">
+            <!-- Чат с клиентом + суфлёр -->
+            <div class="chat-container" style="display: flex; flex-direction: column; height: 100%; min-height: 500px;">
+                <div class="chat-header">
+                    <div class="chat-title" id="operator-chat-title">
+                        Диалог с клиентом
+                        <span class="channel-indicator" id="operator-channel-indicator">Чат</span>
+                    </div>
+                    <div class="chat-status">
+                        <div class="status-indicator"></div>
+                        <span id="operator-status">Ожидание клиента</span>
+                    </div>
+                </div>
+
+                <!-- Пустой чат оператора по умолчанию -->
+                <div class="messages-container" id="operator-chat">
+                    <div class="empty-chat-message" id="empty-operator-chat">
+                        <i class="fas fa-headset" style="font-size: 2rem; margin-bottom: 1rem;"></i><br>
+                        Диалог с клиентом пуст<br>
+                        <span style="font-size: 0.9rem;">Начните общение или включите суфлер</span>
+                    </div>
+                </div>
+
+                <!-- Контейнер для транскрипции -->
+                <div id="transcription-container" class="transcription-container" style="display: none;">
+                    <div style="color: var(--gray); font-size: 0.85rem; text-align: center; padding: 1rem;">
+                        <i class="fas fa-microphone"></i> Транскрипция звонка появится здесь...
+                    </div>
+                </div>
+
+                <div class="input-container">
+                    <input type="text" class="message-input" id="operator-input" placeholder="Введите ответ для клиента...">
+                    <button class="send-button" id="operator-send">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Скрытые данные для JavaScript -->
+<div id="app-data"
+     data-client-id="{{ client.id }}"
+     data-client-name="{{ client_name }}"
+     data-session-id="{{ chat_session.id }}"
+     data-api-url="{{ api_url }}"
+     style="display: none;">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Данные из Django
+    const currentSessionId = "{{ chat_session.id }}";
+    const currentClientId = "{{ client.id }}";
+    const clientName = "{{ client_name }}";
+    const apiUrl = "{{ api_url }}";
+
+    console.log('Данные сессии:', {
+        currentSessionId,
+        currentClientId,
+        clientName,
+        apiUrl
+    });
+
+    // Глобальные переменные для main.js
+    window.chatSessionData = {
+        currentSessionId,
+        currentClientId,
+        clientName,
+        apiUrl
+    };
+</script>
+
+<!-- Подключаем ваш основной JavaScript -->
+<script src="{% static 'js/main.js' %}"></script>
+{% endblock %}

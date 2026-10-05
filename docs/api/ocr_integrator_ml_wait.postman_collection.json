@@ -1,0 +1,331 @@
+{
+  "info": {
+    "name": "Sufler OCR — ML, долгое ожидание result",
+    "description": "Демо mode=ml: тип документа сервер угадывает сам.\n\nКак показать, что 3-й запрос долго грузится:\n0) Войти\n1) Выбрать ОДИН скан из папки «1. Загрузить ML» → Send (202)\n3) Сразу «GET Результат (ждёт OCR)» → Send и не трогать. Спиннер крутится 20–90 сек, пока Paddle читает картинку. Потом придёт 200 и поля.\n\nШаг 2 не обязателен: шаг 3 сам крутит статус в фоне.\nФайлы: Desktop\\тест1\\доки-ml (копии в docs/api/ocr-demo-ml/).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "sufler-ocr-ml-wait-demo"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8001" },
+    { "key": "username", "value": "dev-role-12" },
+    { "key": "password", "value": "replace-with-dev-only-password" },
+    { "key": "job_id", "value": "" },
+    { "key": "document_type", "value": "" },
+    { "key": "approve_fields", "value": "{}" }
+  ],
+  "item": [
+    {
+      "name": "0. Войти как OCR-оператор",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('login ok', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(pm.response.code).to.eql(200);",
+              "  pm.expect(body.ok).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/api/auth/login/",
+        "description": "Один раз. 200 и username=dev-role-12."
+      }
+    },
+    {
+      "name": "1. Загрузить ML — 10 новых из тест1/доки-ml",
+      "description": "mode=ml, без doc_type. После 202 сразу жмите запрос 3.",
+      "item": [
+        {
+          "name": "11. Полис страхования",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/11_polis_strahovaniya.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "11_polis_strahovaniya.png · mode=ml"
+          }
+        },
+        {
+          "name": "12. Обмен валюты",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/12_obmen_valuty.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "12_obmen_valuty.png · mode=ml"
+          }
+        },
+        {
+          "name": "13. Справка о зарплате",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/13_spravka_zarplata.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "13_spravka_zarplata.png · mode=ml"
+          }
+        },
+        {
+          "name": "14. Доверенность",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/14_doverennost.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "14_doverennost.png · mode=ml"
+          }
+        },
+        {
+          "name": "15. Перевод IBAN",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/15_perevod_iban.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "15_perevod_iban.png · mode=ml"
+          }
+        },
+        {
+          "name": "16. Извещение вклад",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/16_izveshchenie_vklad.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "16_izveshchenie_vklad.png · mode=ml"
+          }
+        },
+        {
+          "name": "17. Блокировка карты",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/17_blokirovka_karty.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "17_blokirovka_karty.png · mode=ml"
+          }
+        },
+        {
+          "name": "18. Квитанция ЖКХ",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/18_kvitanciya_zhkh.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "18_kvitanciya_zhkh.png · mode=ml"
+          }
+        },
+        {
+          "name": "19. SWIFT-перевод",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/19_swift_perevod.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "19_swift_perevod.png · mode=ml"
+          }
+        },
+        {
+          "name": "20. Закрытие счёта",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 202 || pm.response.code === 200) { const b = pm.response.json(); if (b.job_id) pm.collectionVariables.set('job_id', b.job_id); }"] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "C:/Users/user/Desktop/тест1/доки-ml/20_zakrytie_scheta.png" },
+                { "key": "mode", "type": "text", "value": "ml" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/ocr/jobs/",
+            "description": "20_zakrytie_scheta.png · mode=ml"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. GET Статус (по желанию)",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": "{{base_url}}/api/v1/ocr/jobs/{{job_id}}/",
+        "description": "Можно не жать. Для показа долгой загрузки используйте сразу шаг 3."
+      }
+    },
+    {
+      "name": "3. GET Результат (ждёт OCR, долго)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const jobId = pm.collectionVariables.get('job_id');",
+              "const base = pm.collectionVariables.get('base_url');",
+              "function delay(ms) {",
+              "  return new Promise(function (resolve) { setTimeout(resolve, ms); });",
+              "}",
+              "async function waitForOcr() {",
+              "  const deadline = Date.now() + 180000;",
+              "  while (Date.now() < deadline) {",
+              "    const res = await new Promise(function (resolve, reject) {",
+              "      pm.sendRequest({",
+              "        url: base + '/api/v1/ocr/jobs/' + jobId + '/',",
+              "        method: 'GET',",
+              "        header: [{ key: 'Accept', value: 'application/json' }]",
+              "      }, function (err, response) {",
+              "        if (err) reject(err); else resolve(response);",
+              "      });",
+              "    });",
+              "    let status = '';",
+              "    try { status = res.json().status || ''; } catch (e) {}",
+              "    console.log('OCR ещё работает:', status);",
+              "    if (status === 'completed' || status === 'processing_error') return;",
+              "    await delay(2500);",
+              "  }",
+              "}",
+              "await waitForOcr();"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  if (body.document_type) pm.collectionVariables.set('document_type', body.document_type);",
+              "  const raw = body.fields || {};",
+              "  const fields = {};",
+              "  Object.keys(raw).forEach(function (key) {",
+              "    const v = raw[key];",
+              "    fields[key] = (v && typeof v === 'object' && 'value' in v) ? v.value : v;",
+              "  });",
+              "  if (Object.keys(fields).length) {",
+              "    pm.collectionVariables.set('approve_fields', JSON.stringify(fields, null, 2));",
+              "  }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": "{{base_url}}/api/v1/ocr/jobs/{{job_id}}/result/",
+        "description": "Перед самим GET скрипт ждёт, пока status=completed (до 3 минут). Поэтому кнопка Send крутится долго — это и есть демо. Потом 200 и fields. 409 сюда почти не попадёт."
+      }
+    },
+    {
+      "name": "4. POST Утвердить поля",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"document_type\": \"{{document_type}}\",\n  \"fields\": {{approve_fields}}\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{base_url}}/api/v1/ocr/jobs/{{job_id}}/approve/",
+        "description": "После долгого шага 3. По желанию."
+      }
+    }
+  ]
+}

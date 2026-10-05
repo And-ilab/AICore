@@ -1,0 +1,127 @@
+# Эталонные диалоговые сценарии — Приложение 2 к договору № 14-03/2026
+# Источник подписей: docs/sources/technical-requirements/prilozhenie-1.md (L2109+)
+# Диаграммы: PNG блок-схемы от Заказчика → эта папка (CC-SCR-NNN.png)
+# Pandoc-текст без графа связей — НЕ использовать для импорта в Studio
+
+version: "1.0"
+contract: "14-03/2026"
+appendix: 2
+delivery_minimum: 50 # Прил.1 п. 4.5.2.1
+reference_count: 10
+hub_registry: "../../modules/ai-hub/tz-ai-hub-contour.md#приложение-b-реестр-диалоговых-сценариев-кц-прил2"
+
+scenarios:
+  - id: CC-SCR-001
+    title: "14-летний хочет открыть счёт"
+    root_question: "Несовершеннолетний хочет открыть счёт"
+    channel: both
+    diagram: CC-SCR-001.png
+    diagram_status: pending
+    key_branches:
+      - "С карточкой / без карточки"
+      - "Базовый счёт → отделение / ДБО → согласие законного представителя"
+      - "Без карточки → текущий / депозит → без согласия законного представителя"
+    acceptance: SUF-T-11
+
+  - id: CC-SCR-002
+    title: "Счёт внуку, 6 лет"
+    root_question: "Я хочу открыть счёт внуку, ему 6 лет?"
+    channel: both
+    diagram: CC-SCR-002.png
+    diagram_status: pending
+    key_branches:
+      - "До 14 лет → иные лица (не законный представитель)"
+      - "Любые вклады + документ ребёнка → «На имя»"
+      - "Законные представители → «Растём вместе» / базовый → «От имени»"
+    acceptance: SUF-T-11
+    canvas_ref: "ai-hub-settings-mockup → scenario_editor (CC-SCR-002, вкладка Карта)"
+
+  - id: CC-SCR-003
+    title: "Оплата телефоном (NFC)"
+    root_question: "Хочу оплачивать за покупки телефоном?"
+    channel: both
+    diagram: CC-SCR-003.png
+    diagram_status: pending
+    key_branches:
+      - "NFC → iOS (Apple Pay) / Android"
+      - "Android: Belkart Pay, Samsung/Garmin/Swoo Pay, Huawei, Xiaomi Pay"
+      - "Вид карточки: Visa, Mastercard, Maestro, Белкарт, UnionPay"
+    acceptance: SUF-T-11
+
+  - id: CC-SCR-004
+    title: "Автокредит"
+    root_question: "Хочу оформить кредит на автомобиль"
+    channel: both
+    diagram: CC-SCR-004.png
+    diagram_status: pending
+    key_branches:
+      - "Марка: авто / электро / BELGEE X70, X50, S50"
+      - "Новый / бывший в эксплуатации (<10 лет)"
+      - "Продавец: организация-партнёр → «Лёгка ехаць» / «Кредит на приобретение»"
+    acceptance: SUF-T-11
+
+  - id: CC-SCR-005
+    title: "Перевод в РФ"
+    root_question: "Мне нужно отправить деньги в РФ?"
+    channel: both
+    diagram: CC-SCR-005.png
+    diagram_status: pending
+    key_branches:
+      - "Физлицо → карта РФ / телефон СБП / SWIFT-реквизиты"
+      - "Каналы: перевод с карты на карту, СМП, инфокиоск, М-банкинг, ИБ, отделение"
+    acceptance: SUF-T-11
+
+  - id: CC-SCR-006
+    title: "PIN-код карты"
+    root_question: "У вас был пин-код ранее?"
+    channel: both
+    diagram: CC-SCR-006.png
+    diagram_status: pending
+    key_branches:
+      - "Да → забыл? → первичное получение / смена (ИБ, МБ, инфокиоск, отделение)"
+      - "Нет → как сделать пин-код"
+    acceptance: SUF-T-11
+
+  - id: CC-SCR-007
+    title: "Выписка для визы"
+    root_question: "Мне нужна выписка со счёта для подачи документов на визу?"
+    channel: both
+    diagram: CC-SCR-007.png
+    diagram_status: pending
+    key_branches:
+      - "RU / EN; выписка / мини-выписка / справка"
+      - "Онлайн самостоятельно / инфокиоск / отделение / М-банкинг / ИБ"
+    acceptance: SUF-T-11
+
+  - id: CC-SCR-008
+    title: "Стройсбережения — срок вклада"
+    root_question: "У меня заканчивается срок вклада по системе строительных сбережений, что необходимо делать?"
+    channel: both
+    diagram: CC-SCR-008.png
+    diagram_status: pending
+    key_branches:
+      - "Сумму накопил? → нет: продолжать / другой план"
+      - "Да → найти жильё → пакет документов → перечисление вклада и/или кредита продавцу"
+    acceptance: SUF-T-11
+
+  - id: CC-SCR-009
+    title: "Перевод на криптобиржу"
+    root_question: "Мне нужно перечислить деньги на криптобиржу?"
+    channel: both
+    diagram: CC-SCR-009.png
+    diagram_status: pending
+    key_branches:
+      - "ФЛ / ЮЛ; Visa → WhiteBird, BYNEX"
+      - "Нет карты → обращение в отделение"
+    acceptance: SUF-T-11
+
+  - id: CC-SCR-010
+    title: "Проверка российских рублей"
+    root_question: "Мне нужно проверить российские рубли?"
+    channel: both
+    diagram: CC-SCR-010.png
+    diagram_status: pending
+    key_branches:
+      - "Монеты → нет (в отделение)"
+      - "Купюры → инкассо / проверка подлинности; сроки и комиссии"
+    acceptance: SUF-T-11

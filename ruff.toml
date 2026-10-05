@@ -1,0 +1,15 @@
+# Keep CI lint stable: unpinned `ruff` in Actions pulls newer defaults that
+# fail the whole monorepo on legacy `# noqa: E402` / import-sort noise.
+extend-exclude = [
+  "**/migrations/**",
+]
+
+[lint]
+select = [
+  "E", # pycodestyle errors
+  "F", # pyflakes
+]
+ignore = [
+  "E402", # module import not at top (django.setup() pattern in tests)
+  "E501", # line length — not enforced historically
+]

@@ -1,0 +1,204 @@
+{
+  "schema_version": "1.0",
+  "id": "cc-reference-scenarios",
+  "version": "1.0",
+  "description": "Reference contact-center scenarios from Appendix 2.",
+  "modules": ["qu", "llm"],
+  "tasks": ["intent-routing", "dialogue", "rag"],
+  "status": "mixed",
+  "source": {
+    "type": "contract-appendix",
+    "path": "docs/sources/technical-requirements/app2-scenarios/manifest.yaml",
+    "contract": "14-03/2026",
+    "appendix": 2,
+    "reference_count": 10,
+    "delivery_minimum": 50
+  },
+  "samples": [
+    {
+      "id": "CC-SCR-001",
+      "title": "14-летний хочет открыть счёт",
+      "input": "Несовершеннолетний хочет открыть счёт",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "С карточкой / без карточки",
+          "Базовый счёт → отделение / ДБО → согласие законного представителя",
+          "Без карточки → текущий / депозит → без согласия законного представителя"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-001.png",
+        "diagram_status": "pending"
+      },
+      "status": "ready"
+    },
+    {
+      "id": "CC-SCR-002",
+      "title": "Счёт внуку, 6 лет",
+      "input": "Я хочу открыть счёт внуку, ему 6 лет?",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "До 14 лет → иные лица (не законный представитель)",
+          "Любые вклады + документ ребёнка → «На имя»",
+          "Законные представители → «Растём вместе» / базовый → «От имени»"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-002.png",
+        "diagram_status": "pending",
+        "canvas_ref": "ai-hub-settings-mockup → scenario_editor (CC-SCR-002, вкладка Карта)"
+      },
+      "status": "ready"
+    },
+    {
+      "id": "CC-SCR-003",
+      "title": "Оплата телефоном (NFC)",
+      "input": "Хочу оплачивать за покупки телефоном?",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "NFC → iOS (Apple Pay) / Android",
+          "Android: Belkart Pay, Samsung/Garmin/Swoo Pay, Huawei, Xiaomi Pay",
+          "Вид карточки: Visa, Mastercard, Maestro, Белкарт, UnionPay"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-003.png",
+        "diagram_status": "pending"
+      },
+      "status": "ready"
+    },
+    {
+      "id": "CC-SCR-004",
+      "title": "Автокредит",
+      "input": "Хочу оформить кредит на автомобиль",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "Марка: авто / электро / BELGEE X70, X50, S50",
+          "Новый / бывший в эксплуатации (<10 лет)",
+          "Продавец: организация-партнёр → «Лёгка ехаць» / «Кредит на приобретение»"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-004.png",
+        "diagram_status": "pending"
+      },
+      "status": "ready"
+    },
+    {
+      "id": "CC-SCR-005",
+      "title": "Перевод в РФ",
+      "input": "Мне нужно отправить деньги в РФ?",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "Физлицо → карта РФ / телефон СБП / SWIFT-реквизиты",
+          "Каналы: перевод с карты на карту, СМП, инфокиоск, М-банкинг, ИБ, отделение"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-005.png",
+        "diagram_status": "pending"
+      },
+      "status": "ready"
+    },
+    {
+      "id": "CC-SCR-006",
+      "title": "PIN-код карты",
+      "input": "У вас был пин-код ранее?",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "Да → забыл? → первичное получение / смена (ИБ, МБ, инфокиоск, отделение)",
+          "Нет → как сделать пин-код"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-006.png",
+        "diagram_status": "pending"
+      },
+      "status": "ready"
+    },
+    {
+      "id": "CC-SCR-007",
+      "title": "Выписка для визы",
+      "input": "Мне нужна выписка со счёта для подачи документов на визу?",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "RU / EN; выписка / мини-выписка / справка",
+          "Онлайн самостоятельно / инфокиоск / отделение / М-банкинг / ИБ"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-007.png",
+        "diagram_status": "pending"
+      },
+      "status": "ready"
+    },
+    {
+      "id": "CC-SCR-008",
+      "title": "Стройсбережения — срок вклада",
+      "input": "У меня заканчивается срок вклада по системе строительных сбережений, что необходимо делать?",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "Сумму накопил? → нет: продолжать / другой план",
+          "Да → найти жильё → пакет документов → перечисление вклада и/или кредита продавцу"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-008.png",
+        "diagram_status": "pending"
+      },
+      "status": "ready"
+    },
+    {
+      "id": "CC-SCR-009",
+      "title": "Перевод на криптобиржу",
+      "input": "Мне нужно перечислить деньги на криптобиржу?",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "ФЛ / ЮЛ; Visa → WhiteBird, BYNEX",
+          "Нет карты → обращение в отделение"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-009.png",
+        "diagram_status": "pending"
+      },
+      "status": "ready"
+    },
+    {
+      "id": "CC-SCR-010",
+      "title": "Проверка российских рублей",
+      "input": "Мне нужно проверить российские рубли?",
+      "channel": "both",
+      "expected": {
+        "branches": [
+          "Монеты → нет (в отделение)",
+          "Купюры → инкассо / проверка подлинности; сроки и комиссии"
+        ],
+        "acceptance": "SUF-T-11"
+      },
+      "assets": {
+        "diagram_path": "docs/sources/technical-requirements/app2-scenarios/CC-SCR-010.png",
+        "diagram_status": "pending"
+      },
+      "status": "ready"
+    }
+  ]
+}

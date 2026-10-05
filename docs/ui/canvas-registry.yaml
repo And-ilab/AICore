@@ -1,0 +1,84 @@
+version: 1
+
+# Единый индекс UI-задач. task_id уникален и используется для поиска canvas.
+# visual.* — P8-09 Playwright regression (tests/ui/visual/): Storybook iframe + baseline PNG.
+canvases:
+  - task_id: tray-launcher
+    canvas_file: canvases/tray-launcher-mockup.canvas.tsx
+    spec_md: docs/modules/ai-hub/tz-unified-v1.4.md
+    i8_id: "I-0, I-0b"
+    react_component_path: frontend/src/components/PortalLauncher.tsx
+    status: react-ready
+    visual:
+      story_id: portal-launcher--menu-open
+      snapshot: tray-launcher.png
+
+  - task_id: sufer-phone
+    canvas_file: canvases/sufer-phone-mockup.canvas.tsx
+    spec_md: docs/modules/ai-hub/tz-unified-v1.4.md
+    i8_id: "II-1, II-2"
+    react_component_path: frontend/src/sufler/SuflerPhoneApp.tsx
+    status: react-ready
+    visual:
+      story_id: sufler-phone-window--active-call
+      snapshot: sufer-phone.png
+
+  - task_id: online-chat
+    canvas_file: canvases/online-chat-mockups.canvas.tsx
+    spec_md: docs/integration/online-chat/tz-online-chat-platform.md
+    i8_id: "II-3, II-6…II-12"
+    react_component_path: frontend/src/online-chat/ChatArmApp.tsx
+    status: react-ready
+    visual:
+      story_id: online-chat-arm--operator-workspace
+      snapshot: online-chat.png
+
+  - task_id: ai-assistant
+    canvas_file: canvases/ai-assistant-ui-mockup.canvas.tsx
+    spec_md: docs/modules/ai-assistant/tz-ai-assistant-belarusbank.md
+    i8_id: "III-1…III-3, III-5, III-6, III-8"
+    react_component_path: frontend/src/assistant/AssistantWindowApp.tsx
+    status: react-ready
+    visual:
+      story_id: assistant-window--chat-with-sources
+      snapshot: ai-assistant.png
+
+  - task_id: internal-user-kc
+    canvas_file: canvases/internal-user-kc-mockup.canvas.tsx
+    spec_md: docs/modules/ai-hub/tz-unified-v1.4.md
+    i8_id: "II-KC"
+    react_component_path: frontend/src/internal-kc/InternalKcDialogApp.tsx
+    status: react-ready
+    visual:
+      story_id: internal-kc-test-dialog--prompt-harness
+      snapshot: internal-user-kc.png
+
+  - task_id: ai-hub-panel
+    canvas_file: canvases/ai-hub-panel-mockup.canvas.tsx
+    spec_md: docs/ui/ai-hub-panel-mockup.md
+    i8_id: "I-1"
+    react_component_path: frontend/src/ai-hub/panel/AiHubPanel.tsx
+    status: react-ready
+    visual:
+      story_id: ai-hub-panel--default-assistant
+      snapshot: ai-hub-panel.png
+
+  - task_id: ai-hub-settings
+    canvas_file: canvases/ai-hub-settings-mockup.canvas.tsx
+    spec_md: docs/ui/ai-hub-settings-mockup.md
+    i8_id: "I-2, II-4, II-5, III-4, III-7, IV-4, IV-5"
+    react_component_path: frontend/src/ai-hub/admin/AiHubAdminApp.tsx
+    status: react-ready
+    visual:
+      story_id: ai-hub-admin-shell--default
+      snapshot: ai-hub-settings.png
+
+  - task_id: ocr-documents
+    canvas_file: canvases/ocr-documents-mockup.canvas.tsx
+    spec_md: docs/modules/ai-hub/tz-unified-v1.4.md
+    i8_id: "IV-1…IV-3"
+    react_component_path: frontend/src/ai-hub/panel/AiHubPanel.tsx
+    status: react-ready
+    visual:
+      story_id: ai-hub-panel--documents-upload-flow
+      snapshot: ocr-documents.png

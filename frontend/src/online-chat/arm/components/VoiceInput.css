@@ -1,0 +1,130 @@
+.voice-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.voice-input__stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 6px 0 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--arm-accent-control, #007A43) 12%, var(--arm-fill-secondary));
+  border: 1px solid color-mix(in srgb, var(--arm-accent-control, #007A43) 40%, var(--arm-stroke-secondary));
+  animation: voice-input-fade-in 160ms ease;
+}
+
+.voice-input__waveform {
+  display: block;
+  width: 148px;
+  height: 32px;
+}
+
+.voice-input__waveform-canvas {
+  display: block;
+  width: 148px;
+  height: 32px;
+}
+
+.voice-input__timer {
+  min-width: 42px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--arm-accent-control, #007A43);
+  letter-spacing: 0.02em;
+}
+
+.voice-input__button {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--arm-stroke-secondary);
+  background: var(--arm-fill-secondary);
+  color: var(--arm-t-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.voice-input__button:hover:not(:disabled) {
+  filter: brightness(0.97);
+  border-color: var(--arm-accent-control);
+}
+
+.voice-input__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.voice-input__button--recording {
+  color: #fff;
+  background: #e53935;
+  border-color: #c62828;
+  box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.55);
+  animation: voice-input-pulse 1.2s ease-out infinite;
+}
+
+.voice-input__button--processing {
+  color: var(--arm-accent-control);
+  border-color: var(--arm-accent-control);
+}
+
+.voice-input__button--cancel {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--arm-t-secondary);
+}
+
+.voice-input__button--cancel:hover:not(:disabled) {
+  color: var(--arm-t-primary);
+  background: var(--arm-fill-tertiary);
+  border-color: var(--arm-stroke-secondary);
+}
+
+.voice-input__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid color-mix(in srgb, var(--arm-accent-control) 30%, transparent);
+  border-top-color: var(--arm-accent-control);
+  border-radius: 50%;
+  animation: voice-input-spin 0.7s linear infinite;
+}
+
+@keyframes voice-input-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(229, 57, 53, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(229, 57, 53, 0);
+  }
+}
+
+@keyframes voice-input-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes voice-input-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

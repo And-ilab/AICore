@@ -1,0 +1,172 @@
+{
+  "schema_version": "1.0",
+  "id": "asr-synthetic-samples",
+  "version": "1.0",
+  "description": "Synthetic ASR utterance manifest; WAV files are pending generation.",
+  "modules": ["asr"],
+  "tasks": ["transcription", "hotword", "latency"],
+  "status": "placeholder",
+  "source": {
+    "type": "synthetic",
+    "path": "benchmarks/datasets/assets/asr",
+    "requirements": ["FR-ASR-01", "FR-ASR-04", "FR-ASR-07", "FR-ASR-09"]
+  },
+  "samples": [
+    {
+      "id": "ASR-SYN-001",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-001.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Я хочу оплатить услуги через ЕРИП",
+        "terms": ["ЕРИП"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-002",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-002.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Подключите мне М-Банкинг",
+        "terms": ["М-Банкинг"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-003",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-003.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Назовите IBAN расчётного счёта",
+        "terms": ["IBAN", "расчётный счёт"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-004",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-004.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Как изменить ПИН-код платёжной карты",
+        "terms": ["ПИН-код", "платёжная карта"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-005",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-005.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Мне нужна банковская гарантия",
+        "terms": ["банковская гарантия"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-006",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-006.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Как оформить международный перевод по SWIFT",
+        "terms": ["международный перевод", "SWIFT"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-007",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-007.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Можно увеличить кредитный лимит",
+        "terms": ["кредитный лимит"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-008",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-008.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Закажите выписку по счёту для визы",
+        "terms": ["выписка по счёту"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-009",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-009.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Я хочу выполнить досрочное погашение кредита",
+        "terms": ["досрочное погашение", "кредит"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-010",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-010.wav",
+        "language": "ru"
+      },
+      "expected": {
+        "text": "Заблокируйте виртуальную карту",
+        "terms": ["блокировка карты", "виртуальная карта"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-011",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-011.wav",
+        "language": "en"
+      },
+      "expected": {
+        "text": "I need an account statement for my visa",
+        "terms": ["account statement"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "ASR-SYN-012",
+      "input": {
+        "audio_path": "benchmarks/datasets/assets/asr/ASR-SYN-012.wav",
+        "language": "en"
+      },
+      "expected": {
+        "text": "How can I change my card PIN",
+        "terms": ["card PIN"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    }
+  ]
+}

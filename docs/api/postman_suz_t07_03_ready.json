@@ -1,0 +1,29 @@
+{
+  "info": {
+    "name": "SUZ T-07-03 HMAC 401",
+    "description": "Вы → свой webhook, битая подпись. Ожидание: 401 {\"error\":\"auth\"}. Не коммитьте, если поменяете URL на внутренний.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "T-07-03 битый HMAC",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" },
+          { "key": "X-Sufler-Event-Id", "value": "33333333-4444-4555-8666-777777777777" },
+          { "key": "X-Sufler-Signature", "value": "0000000000000000000000000000000000000000000000000000000000000000" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"event_id\":\"33333333-4444-4555-8666-777777777777\",\"event_type\":\"article.deleted\",\"occurred_at\":\"2026-05-27T16:00:00+03:00\",\"article_id\":20003,\"iblock_id\":42}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "http://127.0.0.1:8001/api/v1/knowledge/events",
+        "description": "Специально нулевая подпись. Ок: 401 и {\"error\":\"auth\"}. Статья в индекс не попадёт."
+      }
+    }
+  ]
+}

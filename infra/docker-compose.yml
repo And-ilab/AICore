@@ -1,0 +1,531 @@
+name: sufler
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sufler}
+      POSTGRES_USER: ${POSTGRES_USER:-sufler}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT_HOST:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-pgvector.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT_HOST:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_API_PORT_HOST:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT_HOST:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:8001,http://localhost:8001}
+      AUTH_BACKEND: ${AUTH_BACKEND:-${AUTH_MODE:-mock_ldap}}
+      AUTH_MODE: ${AUTH_MODE:-mock_ldap}
+      AUTH_MOCK_LDAP_DEFAULT_PASSWORD: ${AUTH_MOCK_LDAP_DEFAULT_PASSWORD:-dev-only-password}
+      AUTH_LDAP_SERVER_URI: ${AUTH_LDAP_SERVER_URI:-}
+      AUTH_LDAP_BIND_DN: ${AUTH_LDAP_BIND_DN:-}
+      AUTH_LDAP_BIND_PASSWORD: ${AUTH_LDAP_BIND_PASSWORD:-}
+      AUTH_LDAP_USER_SEARCH_BASE: ${AUTH_LDAP_USER_SEARCH_BASE:-}
+      AUTH_LDAP_GROUP_SEARCH_BASE: ${AUTH_LDAP_GROUP_SEARCH_BASE:-}
+      AUTH_LDAP_USER_FILTER: ${AUTH_LDAP_USER_FILTER:-"(sAMAccountName=%(user)s)"}
+      AUTH_LDAP_TLS_CACERTFILE: ${AUTH_LDAP_TLS_CACERTFILE:-}
+      AUTH_LDAP_ROLE_GROUP_MAP_JSON: ${AUTH_LDAP_ROLE_GROUP_MAP_JSON:-}
+      AUTH_LDAP_CACHE_TIMEOUT: ${AUTH_LDAP_CACHE_TIMEOUT:-300}
+      SUZ_INGEST_MODE: ${SUZ_INGEST_MODE:-mock}
+      SUZ_WEBHOOK_HMAC_SECRET: ${SUZ_WEBHOOK_HMAC_SECRET:-}
+      SUZ_ALLOWED_IBLOCK_IDS: ${SUZ_ALLOWED_IBLOCK_IDS:-}
+      BITRIX_REST_BASE_URL: ${BITRIX_REST_BASE_URL:-}
+      BITRIX_SERVICE_TOKEN: ${BITRIX_SERVICE_TOKEN:-}
+      BITRIX_CHANGES_PATH: ${BITRIX_CHANGES_PATH:-/local/api/sufler/v1/changes}
+      BITRIX_HTTP_TIMEOUT_SECONDS: ${BITRIX_HTTP_TIMEOUT_SECONDS:-15}
+      SUZ_RECONCILE_ENABLED: ${SUZ_RECONCILE_ENABLED:-false}
+      SUZ_RECONCILE_LIMIT: ${SUZ_RECONCILE_LIMIT:-100}
+      SUZ_RECONCILE_INTERVAL_SECONDS: ${SUZ_RECONCILE_INTERVAL_SECONDS:-300}
+      OKTELL_MODE: ${OKTELL_MODE:-mock}
+      OKTELL_ENABLED: ${OKTELL_ENABLED:-false}
+      OKTELL_WS_URL: ${OKTELL_WS_URL:-ws://127.0.0.1:8766}
+      OKTELL_MOCK_WS_URL: ${OKTELL_MOCK_WS_URL:-ws://127.0.0.1:8766}
+      OKTELL_PROD_WS_URL: ${OKTELL_PROD_WS_URL:-}
+      OKTELL_SUBSCRIBE_EVENT: ${OKTELL_SUBSCRIBE_EVENT:-phoneevent}
+      OKTELL_PROFILE_ID: ${OKTELL_PROFILE_ID:-test_line_t45}
+      OKTELL_TEST_LINE_LABEL: ${OKTELL_TEST_LINE_LABEL:-T+45 test line}
+      OKTELL_TEST_QUEUE: ${OKTELL_TEST_QUEUE:-}
+      OKTELL_TEST_MARKING: ${OKTELL_TEST_MARKING:-TEST_OKTELL_T45}
+      OKTELL_LISTEN_MODE: ${OKTELL_LISTEN_MODE:-mock}
+      OKTELL_WEBHOOK_SECRET: ${OKTELL_WEBHOOK_SECRET:-}
+      OKTELL_SIP_SERVER: ${OKTELL_SIP_SERVER:-10.1.1.31}
+      OKTELL_SIP_DOMAIN: ${OKTELL_SIP_DOMAIN:-dev-qms.onedemoserver.online}
+      OKTELL_SIP_PROXY: ${OKTELL_SIP_PROXY:-10.1.1.31}
+      OKTELL_SIP_LOCAL_IP: ${OKTELL_SIP_LOCAL_IP:-}
+      OKTELL_SIP_USER_START: ${OKTELL_SIP_USER_START:-2001}
+      OKTELL_SIP_USER_COUNT: ${OKTELL_SIP_USER_COUNT:-8}
+      OKTELL_SIP_PASSWORD: ${OKTELL_SIP_PASSWORD:-}
+      OKTELL_SIP_ACCOUNTS: ${OKTELL_SIP_ACCOUNTS:-}
+      OKTELL_SIP_PASSWORDS_JSON: ${OKTELL_SIP_PASSWORDS_JSON:-}
+      OKTELL_SIP_BARGE: ${OKTELL_SIP_BARGE:-star}
+      OKTELL_SIP_SWAP_SPEAKERS: ${OKTELL_SIP_SWAP_SPEAKERS:-}
+      OKTELL_MOCK_CLIENT_TEXT: ${OKTELL_MOCK_CLIENT_TEXT:-}
+      AUDIT_ENABLED: ${AUDIT_ENABLED:-true}
+      AUDIT_SINKS: ${AUDIT_SINKS:-file}
+      AUDIT_FILE_PATH: /var/log/sufler/audit.jsonl
+      AUDIT_KUMA_COLLECTOR_URL: ${AUDIT_KUMA_COLLECTOR_URL:-}
+      AUDIT_HTTP_COLLECTOR_URL: ${AUDIT_HTTP_COLLECTOR_URL:-}
+      AUDIT_HTTP_TIMEOUT_SECONDS: ${AUDIT_HTTP_TIMEOUT_SECONDS:-5}
+      AUDIT_DEVICE_VENDOR: ${AUDIT_DEVICE_VENDOR:-Belarusbank}
+      AUDIT_DEVICE_PRODUCT: ${AUDIT_DEVICE_PRODUCT:-AI_Hub}
+      POSTGRES_DB: ${POSTGRES_DB:-sufler}
+      POSTGRES_USER: ${POSTGRES_USER:-sufler}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      MINIO_ENDPOINT: http://minio:9000
+      AI_INFERENCE_PROFILE: ${AI_INFERENCE_PROFILE:-test}
+      MODEL_GATEWAY_MODE: ${MODEL_GATEWAY_MODE:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-local}
+      OPENAI_MODEL: ${OPENAI_MODEL:-qwen2.5:3b}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-600}
+      SUFLER_ALLOW_UNGROUNDED: ${SUFLER_ALLOW_UNGROUNDED:-1}
+      SUFLER_LLM_BASE_URL: ${SUFLER_LLM_BASE_URL:-}
+      SUFLER_LLM_API_KEY: ${SUFLER_LLM_API_KEY:-}
+      SUFLER_LLM_MODEL: ${SUFLER_LLM_MODEL:-}
+      ASSISTANT_LLM_BASE_URL: ${ASSISTANT_LLM_BASE_URL:-}
+      ASSISTANT_LLM_API_KEY: ${ASSISTANT_LLM_API_KEY:-}
+      ASSISTANT_LLM_MODEL: ${ASSISTANT_LLM_MODEL:-}
+      OCR_LLM_BASE_URL: ${OCR_LLM_BASE_URL:-}
+      OCR_LLM_API_KEY: ${OCR_LLM_API_KEY:-}
+      OCR_LLM_MODEL: ${OCR_LLM_MODEL:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_ACTIVE_MODEL_PATH: ${OLLAMA_ACTIVE_MODEL_PATH:-/tmp/sufler_active_openai_model}
+      LOCAL_LLM_MANAGER_URL: ${LOCAL_LLM_MANAGER_URL:-}
+      EMBEDDING_MODE: ${EMBEDDING_MODE:-stub}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://embedding:8090}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1024}
+      EMBEDDING_TIMEOUT_SECONDS: ${EMBEDDING_TIMEOUT_SECONDS:-180}
+      VOSK_MODEL_PATH: ${VOSK_MODEL_PATH:-/app/var/vosk-model-ru-0.42}
+      VOSK_MODEL_DOWNLOAD: ${VOSK_MODEL_DOWNLOAD:-1}
+      # Base cap; default answers get +18% in code so the last sentence can finish.
+      ASSISTANT_MAX_TOKENS: ${ASSISTANT_MAX_TOKENS:-256}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ONLINE_CHAT_BUCKET: ${MINIO_ONLINE_CHAT_BUCKET:-sufler-online-chat}
+      ONLINE_CHAT_OBJECT_STORE_BACKEND: ${ONLINE_CHAT_OBJECT_STORE_BACKEND:-auto}
+      ONLINE_CHAT_MAX_UPLOAD_BYTES: ${ONLINE_CHAT_MAX_UPLOAD_BYTES:-10485760}
+      ONLINE_CHAT_ALLOWED_UPLOAD_TYPES: ${ONLINE_CHAT_ALLOWED_UPLOAD_TYPES:-image/jpeg,image/png,application/pdf,text/plain}
+      ONLINE_CHAT_CHANNEL_HTTP_TIMEOUT_SECONDS: ${ONLINE_CHAT_CHANNEL_HTTP_TIMEOUT_SECONDS:-10}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-polling}
+      TELEGRAM_POLL_TIMEOUT_SECONDS: ${TELEGRAM_POLL_TIMEOUT_SECONDS:-25}
+      VIBER_AUTH_TOKEN: ${VIBER_AUTH_TOKEN:-}
+      VK_ACCESS_TOKEN: ${VK_ACCESS_TOKEN:-}
+      VK_WEBHOOK_SECRET: ${VK_WEBHOOK_SECRET:-}
+      VK_CONFIRMATION_CODE: ${VK_CONFIRMATION_CODE:-}
+      OK_ACCESS_TOKEN: ${OK_ACCESS_TOKEN:-}
+      OK_WEBHOOK_SECRET: ${OK_WEBHOOK_SECRET:-}
+      ONLINE_CHAT_API_CHANNEL_SIGNING_SECRET: ${ONLINE_CHAT_API_CHANNEL_SIGNING_SECRET:-}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.smtp.EmailBackend}
+      EMAIL_HOST: ${EMAIL_HOST:-mailpit}
+      EMAIL_PORT: ${EMAIL_PORT:-1025}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-false}
+      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-online-chat@belarusbank.by}
+      ONLINE_CHAT_FROM_EMAIL: ${ONLINE_CHAT_FROM_EMAIL:-online-chat@belarusbank.by}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      - sh
+      - -c
+      - if [ "$${VOSK_MODEL_DOWNLOAD:-0}" = "1" ]; then python -m pip install -q vosk; fi && python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "${BACKEND_PORT_HOST:-8001}:8000"
+    volumes:
+      - ../backend:/app
+      - audit_data:/var/log/sufler
+      - mail_data:/app/var/mail
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=5)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 90s
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT_HOST:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT_HOST:-1025}:1025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/api/v1/info"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  embedding:
+    profiles: ["embedding"]
+    build:
+      context: ../backend/services/embedding
+      dockerfile: Dockerfile
+    image: ${EMBEDDING_IMAGE:-sufler-embedding:local}
+    restart: unless-stopped
+    environment:
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1024}
+      HF_HOME: /models/hf-cache
+      TRANSFORMERS_CACHE: /models/hf-cache
+      SENTENCE_TRANSFORMERS_HOME: /models/hf-cache
+    volumes:
+      - ${EMBEDDING_MODELS_DIR:-../models}:/models
+    ports:
+      - "${EMBEDDING_PORT_HOST:-8090}:8090"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=3)",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 20
+      start_period: 240s
+
+  celery-worker:
+    profiles: ["workers"]
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:8001,http://localhost:8001}
+      AUTH_BACKEND: ${AUTH_BACKEND:-${AUTH_MODE:-mock_ldap}}
+      AUTH_MODE: ${AUTH_MODE:-mock_ldap}
+      AUTH_MOCK_LDAP_DEFAULT_PASSWORD: ${AUTH_MOCK_LDAP_DEFAULT_PASSWORD:-dev-only-password}
+      AUTH_LDAP_SERVER_URI: ${AUTH_LDAP_SERVER_URI:-}
+      AUTH_LDAP_BIND_DN: ${AUTH_LDAP_BIND_DN:-}
+      AUTH_LDAP_BIND_PASSWORD: ${AUTH_LDAP_BIND_PASSWORD:-}
+      AUTH_LDAP_USER_SEARCH_BASE: ${AUTH_LDAP_USER_SEARCH_BASE:-}
+      AUTH_LDAP_GROUP_SEARCH_BASE: ${AUTH_LDAP_GROUP_SEARCH_BASE:-}
+      AUTH_LDAP_USER_FILTER: ${AUTH_LDAP_USER_FILTER:-"(sAMAccountName=%(user)s)"}
+      AUTH_LDAP_TLS_CACERTFILE: ${AUTH_LDAP_TLS_CACERTFILE:-}
+      AUTH_LDAP_ROLE_GROUP_MAP_JSON: ${AUTH_LDAP_ROLE_GROUP_MAP_JSON:-}
+      AUTH_LDAP_CACHE_TIMEOUT: ${AUTH_LDAP_CACHE_TIMEOUT:-300}
+      SUZ_INGEST_MODE: ${SUZ_INGEST_MODE:-mock}
+      SUZ_WEBHOOK_HMAC_SECRET: ${SUZ_WEBHOOK_HMAC_SECRET:-}
+      SUZ_ALLOWED_IBLOCK_IDS: ${SUZ_ALLOWED_IBLOCK_IDS:-}
+      BITRIX_REST_BASE_URL: ${BITRIX_REST_BASE_URL:-}
+      BITRIX_SERVICE_TOKEN: ${BITRIX_SERVICE_TOKEN:-}
+      BITRIX_CHANGES_PATH: ${BITRIX_CHANGES_PATH:-/local/api/sufler/v1/changes}
+      BITRIX_HTTP_TIMEOUT_SECONDS: ${BITRIX_HTTP_TIMEOUT_SECONDS:-15}
+      SUZ_RECONCILE_ENABLED: ${SUZ_RECONCILE_ENABLED:-false}
+      SUZ_RECONCILE_LIMIT: ${SUZ_RECONCILE_LIMIT:-100}
+      OKTELL_MODE: ${OKTELL_MODE:-mock}
+      OKTELL_ENABLED: ${OKTELL_ENABLED:-false}
+      OKTELL_WS_URL: ${OKTELL_WS_URL:-ws://127.0.0.1:8766}
+      OKTELL_MOCK_WS_URL: ${OKTELL_MOCK_WS_URL:-ws://127.0.0.1:8766}
+      OKTELL_PROD_WS_URL: ${OKTELL_PROD_WS_URL:-}
+      OKTELL_SUBSCRIBE_EVENT: ${OKTELL_SUBSCRIBE_EVENT:-phoneevent}
+      OKTELL_PROFILE_ID: ${OKTELL_PROFILE_ID:-test_line_t45}
+      OKTELL_TEST_LINE_LABEL: ${OKTELL_TEST_LINE_LABEL:-T+45 test line}
+      OKTELL_TEST_QUEUE: ${OKTELL_TEST_QUEUE:-}
+      OKTELL_TEST_MARKING: ${OKTELL_TEST_MARKING:-TEST_OKTELL_T45}
+      OKTELL_LISTEN_MODE: ${OKTELL_LISTEN_MODE:-mock}
+      OKTELL_WEBHOOK_SECRET: ${OKTELL_WEBHOOK_SECRET:-}
+      OKTELL_SIP_SERVER: ${OKTELL_SIP_SERVER:-10.1.1.31}
+      OKTELL_SIP_DOMAIN: ${OKTELL_SIP_DOMAIN:-dev-qms.onedemoserver.online}
+      OKTELL_SIP_PROXY: ${OKTELL_SIP_PROXY:-10.1.1.31}
+      OKTELL_SIP_LOCAL_IP: ${OKTELL_SIP_LOCAL_IP:-}
+      OKTELL_SIP_USER_START: ${OKTELL_SIP_USER_START:-2001}
+      OKTELL_SIP_USER_COUNT: ${OKTELL_SIP_USER_COUNT:-8}
+      OKTELL_SIP_PASSWORD: ${OKTELL_SIP_PASSWORD:-}
+      OKTELL_SIP_ACCOUNTS: ${OKTELL_SIP_ACCOUNTS:-}
+      OKTELL_SIP_PASSWORDS_JSON: ${OKTELL_SIP_PASSWORDS_JSON:-}
+      OKTELL_SIP_BARGE: ${OKTELL_SIP_BARGE:-star}
+      OKTELL_SIP_SWAP_SPEAKERS: ${OKTELL_SIP_SWAP_SPEAKERS:-}
+      OKTELL_MOCK_CLIENT_TEXT: ${OKTELL_MOCK_CLIENT_TEXT:-}
+      AUDIT_ENABLED: ${AUDIT_ENABLED:-true}
+      AUDIT_SINKS: ${AUDIT_SINKS:-file}
+      AUDIT_FILE_PATH: /var/log/sufler/audit.jsonl
+      AUDIT_KUMA_COLLECTOR_URL: ${AUDIT_KUMA_COLLECTOR_URL:-}
+      AUDIT_HTTP_COLLECTOR_URL: ${AUDIT_HTTP_COLLECTOR_URL:-}
+      AUDIT_HTTP_TIMEOUT_SECONDS: ${AUDIT_HTTP_TIMEOUT_SECONDS:-5}
+      AUDIT_DEVICE_VENDOR: ${AUDIT_DEVICE_VENDOR:-Belarusbank}
+      AUDIT_DEVICE_PRODUCT: ${AUDIT_DEVICE_PRODUCT:-AI_Hub}
+      POSTGRES_DB: ${POSTGRES_DB:-sufler}
+      POSTGRES_USER: ${POSTGRES_USER:-sufler}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      MINIO_ENDPOINT: http://minio:9000
+      AI_INFERENCE_PROFILE: ${AI_INFERENCE_PROFILE:-test}
+      MODEL_GATEWAY_MODE: ${MODEL_GATEWAY_MODE:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-local}
+      OPENAI_MODEL: ${OPENAI_MODEL:-qwen2.5:3b}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-600}
+      SUFLER_ALLOW_UNGROUNDED: ${SUFLER_ALLOW_UNGROUNDED:-1}
+      SUFLER_LLM_BASE_URL: ${SUFLER_LLM_BASE_URL:-}
+      SUFLER_LLM_API_KEY: ${SUFLER_LLM_API_KEY:-}
+      SUFLER_LLM_MODEL: ${SUFLER_LLM_MODEL:-}
+      ASSISTANT_LLM_BASE_URL: ${ASSISTANT_LLM_BASE_URL:-}
+      ASSISTANT_LLM_API_KEY: ${ASSISTANT_LLM_API_KEY:-}
+      ASSISTANT_LLM_MODEL: ${ASSISTANT_LLM_MODEL:-}
+      OCR_LLM_BASE_URL: ${OCR_LLM_BASE_URL:-}
+      OCR_LLM_API_KEY: ${OCR_LLM_API_KEY:-}
+      OCR_LLM_MODEL: ${OCR_LLM_MODEL:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_ACTIVE_MODEL_PATH: ${OLLAMA_ACTIVE_MODEL_PATH:-/tmp/sufler_active_openai_model}
+      LOCAL_LLM_MANAGER_URL: ${LOCAL_LLM_MANAGER_URL:-}
+      EMBEDDING_MODE: ${EMBEDDING_MODE:-stub}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-http://embedding:8090}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-intfloat/multilingual-e5-large}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1024}
+      EMBEDDING_TIMEOUT_SECONDS: ${EMBEDDING_TIMEOUT_SECONDS:-180}
+      VOSK_MODEL_PATH: ${VOSK_MODEL_PATH:-/app/var/vosk-model-ru-0.42}
+      VOSK_MODEL_DOWNLOAD: ${VOSK_MODEL_DOWNLOAD:-1}
+      # Base cap; default answers get +18% in code so the last sentence can finish.
+      ASSISTANT_MAX_TOKENS: ${ASSISTANT_MAX_TOKENS:-256}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ONLINE_CHAT_BUCKET: ${MINIO_ONLINE_CHAT_BUCKET:-sufler-online-chat}
+      ONLINE_CHAT_OBJECT_STORE_BACKEND: ${ONLINE_CHAT_OBJECT_STORE_BACKEND:-auto}
+      ONLINE_CHAT_CHANNEL_HTTP_TIMEOUT_SECONDS: ${ONLINE_CHAT_CHANNEL_HTTP_TIMEOUT_SECONDS:-10}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-polling}
+      TELEGRAM_POLL_TIMEOUT_SECONDS: ${TELEGRAM_POLL_TIMEOUT_SECONDS:-25}
+      VIBER_AUTH_TOKEN: ${VIBER_AUTH_TOKEN:-}
+      VK_ACCESS_TOKEN: ${VK_ACCESS_TOKEN:-}
+      VK_WEBHOOK_SECRET: ${VK_WEBHOOK_SECRET:-}
+      VK_CONFIRMATION_CODE: ${VK_CONFIRMATION_CODE:-}
+      OK_ACCESS_TOKEN: ${OK_ACCESS_TOKEN:-}
+      OK_WEBHOOK_SECRET: ${OK_WEBHOOK_SECRET:-}
+      ONLINE_CHAT_API_CHANNEL_SIGNING_SECRET: ${ONLINE_CHAT_API_CHANNEL_SIGNING_SECRET:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: celery -A sufler worker --loglevel=info --hostname=worker@%h
+    volumes:
+      - ../backend:/app
+      - audit_data:/var/log/sufler
+      - ../backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A sufler inspect ping -d worker@$${HOSTNAME} --timeout=10 | grep -q pong",
+        ]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 30s
+
+  celery-beat:
+    profiles: ["workers"]
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      AUTH_BACKEND: ${AUTH_BACKEND:-${AUTH_MODE:-mock_ldap}}
+      AUTH_MODE: ${AUTH_MODE:-mock_ldap}
+      POSTGRES_DB: ${POSTGRES_DB:-sufler}
+      POSTGRES_USER: ${POSTGRES_USER:-sufler}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      ONLINE_CHAT_LOST_TIMEOUT_SECONDS: ${ONLINE_CHAT_LOST_TIMEOUT_SECONDS:-600}
+    command: celery -A sufler beat --loglevel=info
+    volumes:
+      - ../backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
+  telegram-poller:
+    profiles: ["telegram"]
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      AUTH_BACKEND: ${AUTH_BACKEND:-${AUTH_MODE:-mock_ldap}}
+      AUTH_MODE: ${AUTH_MODE:-mock_ldap}
+      POSTGRES_DB: ${POSTGRES_DB:-sufler}
+      POSTGRES_USER: ${POSTGRES_USER:-sufler}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ONLINE_CHAT_BUCKET: ${MINIO_ONLINE_CHAT_BUCKET:-sufler-online-chat}
+      ONLINE_CHAT_OBJECT_STORE_BACKEND: ${ONLINE_CHAT_OBJECT_STORE_BACKEND:-auto}
+      ONLINE_CHAT_CHANNEL_HTTP_TIMEOUT_SECONDS: ${ONLINE_CHAT_CHANNEL_HTTP_TIMEOUT_SECONDS:-10}
+      MODEL_GATEWAY_MODE: ${MODEL_GATEWAY_MODE:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-local}
+      OPENAI_MODEL: ${OPENAI_MODEL:-qwen2.5:3b}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-600}
+      SUFLER_ALLOW_UNGROUNDED: ${SUFLER_ALLOW_UNGROUNDED:-1}
+      SUFLER_LLM_BASE_URL: ${SUFLER_LLM_BASE_URL:-}
+      SUFLER_LLM_API_KEY: ${SUFLER_LLM_API_KEY:-}
+      SUFLER_LLM_MODEL: ${SUFLER_LLM_MODEL:-}
+      ASSISTANT_LLM_BASE_URL: ${ASSISTANT_LLM_BASE_URL:-}
+      ASSISTANT_LLM_API_KEY: ${ASSISTANT_LLM_API_KEY:-}
+      ASSISTANT_LLM_MODEL: ${ASSISTANT_LLM_MODEL:-}
+      OCR_LLM_BASE_URL: ${OCR_LLM_BASE_URL:-}
+      OCR_LLM_API_KEY: ${OCR_LLM_API_KEY:-}
+      OCR_LLM_MODEL: ${OCR_LLM_MODEL:-}
+      EMBEDDING_MODE: ${EMBEDDING_MODE:-stub}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-polling}
+      TELEGRAM_POLL_TIMEOUT_SECONDS: ${TELEGRAM_POLL_TIMEOUT_SECONDS:-25}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: python manage.py poll_telegram
+    volumes:
+      - ../backend:/app
+      - audit_data:/var/log/sufler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+      VITE_DISABLE_HMR: "1"
+      VITE_DEV_RBAC_ROLES: ${VITE_DEV_RBAC_ROLES:-contact_center_online_chat_operator,contact_center_supervisor,contact_center_module_administrator,contact_center_telephony_operator,ai_hub_admin}
+      # Must match AUTH_MOCK_LDAP_DEFAULT_PASSWORD (infra/.env). Vite reads this at process start.
+      VITE_DEV_AUTH_USER: ${VITE_DEV_AUTH_USER:-dev-role-01}
+      VITE_DEV_AUTH_PASSWORD: ${AUTH_MOCK_LDAP_DEFAULT_PASSWORD:-replace-with-dev-only-password}
+    ports:
+      - "${FRONTEND_PORT_HOST:-5173}:5173"
+    volumes:
+      - ../frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command:
+      - sh
+      - -c
+      - if [ ! -d node_modules/.bin ]; then npm ci; fi && npm run dev -- --host 0.0.0.0 --port 5173
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  audit_data:
+  mail_data:
+  frontend_node_modules:

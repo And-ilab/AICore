@@ -1,0 +1,28 @@
+{
+  "_canvasBuild": "v1.4.73",
+  "screen": "widget",
+  "chat_arm_view": "active",
+  "onlineChatArmLeftWidth": 220,
+  "onlineChatArmRightWidth": 260,
+  "onlineChatArmLeftCollapsed": false,
+  "onlineChatArmStatsDrawer": false,
+  "onlineChatArmStatsTab": "dialogs",
+  "onlineChatArmRole": "operator",
+  "chat_queue": "1",
+  "onlineChatArmExpandedSections": {
+    "waiting": false,
+    "mine": false,
+    "colleagues": false,
+    "offline": false,
+    "lost": false,
+    "shared": false
+  },
+  "onlineChatArmCollapsedCards": {},
+  "chat_toast": null,
+  "widget_view": "prechat",
+  "onlineChatReportView": "pie",
+  "chat_presence": "online",
+  "onlineChatAdminNav": "Назначение",
+  "onlineChatPreviewWidth": 1094,
+  "onlineChatPreviewHeight": 839
+}

@@ -1,0 +1,37 @@
+# CPU inference: Ollama (LLM). Embedding lives in docker-compose.yml.
+#
+# From infra/:
+#   COMPOSE_PROFILES=cpu-inference docker compose \
+#     -f docker-compose.yml -f local-inference/docker-compose.cpu.yml up -d
+#
+# Pull a model (example):
+#   docker compose -f docker-compose.yml -f local-inference/docker-compose.cpu.yml \
+#     --profile cpu-inference exec ollama ollama pull qwen2.5:3b
+#
+# Or: ./local-inference/up-cpu.sh
+name: sufler
+
+services:
+  ollama:
+    profiles: ["cpu-inference"]
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: unless-stopped
+    environment:
+      # Keep model loaded after last request. Use -1 only on hosts with spare RAM
+      # (llama3.2:3b ≈ 2–3GB). Default 30m avoids OOM white-screens after deploy.
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT_HOST:-11434}:11434"
+    # Enough time for first model pull / load on CPU
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  ollama_data:

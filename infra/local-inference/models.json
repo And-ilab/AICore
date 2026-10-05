@@ -1,0 +1,19 @@
+{
+  "default_model_id": "qwen2.5-1.5b-instruct",
+  "openai_alias": "qwen2.5-1.5b-instruct",
+  "llama_port": 8080,
+  "models": [
+    {
+      "id": "qwen2.5-3b-instruct",
+      "label": "Qwen2.5 3B — качество",
+      "description": "Медленнее на CPU, ответы точнее",
+      "gguf": "qwen2.5-3b-instruct-q4_k_m.gguf"
+    },
+    {
+      "id": "qwen2.5-1.5b-instruct",
+      "label": "Qwen2.5 1.5B — быстрее",
+      "description": "Быстрее на CPU, чуть проще ответы",
+      "gguf": "qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    }
+  ]
+}

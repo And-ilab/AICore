@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sufler.local/schemas/benchmark-report-v1.json",
+  "title": "Sufler benchmark report",
+  "description": "Output contract for benchmarks/bench.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "suite",
+    "runner_status",
+    "generated_at",
+    "datasets",
+    "metrics"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "report_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "suite": {
+      "enum": ["asr", "embedding", "qu", "llm", "ocr"]
+    },
+    "runner_status": {
+      "enum": ["stub", "partial", "ready"]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "datasets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^FR-[A-Z]+-[0-9]+$"
+      }
+    },
+    "suite_details": {
+      "type": "object"
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latency_ms", "accuracy_percent"],
+      "properties": {
+        "latency_ms": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["p50", "p95", "status"],
+          "properties": {
+            "p50": {
+              "type": "number",
+              "minimum": 0
+            },
+            "p95": {
+              "type": "number",
+              "minimum": 0
+            },
+            "status": {
+              "enum": ["placeholder", "measured"]
+            }
+          }
+        },
+        "accuracy_percent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "status"],
+          "properties": {
+            "value": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 100
+            },
+            "status": {
+              "enum": ["placeholder", "measured"]
+            }
+          }
+        },
+        "wer_percent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "status"],
+          "properties": {
+            "value": {
+              "type": ["number", "null"],
+              "minimum": 0
+            },
+            "status": {
+              "enum": ["placeholder", "measured"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+Django==5.0.3
+djangorestframework==3.15.2
+drf-spectacular==0.28.0
+celery
+channels==4.0.0
+daphne==4.1.2
+channels-redis==4.2.0
+minio
+psycopg[binary]
+pgvector
+PyYAML
+redis
+requests==2.31.0
+websockets==12.0
+Pillow>=10.0.0
+pytesseract>=0.3.10
+pypdf>=4.0.0
+pypdfium2>=4.30.0
+rarfile>=4.2
+vosk
+reportlab>=4.0.0
+# Optional: pip install -r requirements-ocr-paddle.txt

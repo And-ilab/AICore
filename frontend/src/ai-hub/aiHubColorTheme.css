@@ -1,0 +1,28 @@
+/* Scoped AI Hub palette switch. Does not affect online-chat. */
+:root {
+  --ai-panel-bg: linear-gradient(180deg, #f7faff 0%, #edf4ff 100%);
+  --ai-header-bg: linear-gradient(135deg, #eaf2ff 0%, #dceaff 55%, #f4f8ff 100%);
+  --ai-tab-accent: #bfd3f3;
+  --ai-tab-bg: linear-gradient(135deg, #eaf2ff 0%, #f4f8ff 100%);
+}
+
+[data-ai-color-theme="emerald"] {
+  --color-primary: #007a43;
+  --color-primary-dark: #00663a;
+  --color-secondary: #0b9e5e;
+  --color-accent: #0b9e5e;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eff9f3;
+  --color-text: #143024;
+  --color-text-muted: #4a6b58;
+  --color-border: #b8dcc8;
+  --color-success: #007a43;
+  --color-success-bg: #e8f5e9;
+  --color-info: #007a43;
+  --color-info-bg: #eaf8f1;
+  --focus-ring: 0 0 0 3px rgb(0 122 67 / 24%);
+  --ai-panel-bg: linear-gradient(180deg, #f5fcf8 0%, #eaf7f1 100%);
+  --ai-header-bg: linear-gradient(135deg, #eaf8f1 0%, #dcf3e8 58%, #f2fbf6 100%);
+  --ai-tab-accent: #bee8d5;
+  --ai-tab-bg: linear-gradient(135deg, #eaf8f1 0%, #f2fbf6 100%);
+}

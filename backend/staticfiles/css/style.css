@@ -1,0 +1,389 @@
+/* Основные переменные */
+:root {
+    --primary: #0D3880;
+    --primary-dark: #0A2A66;
+    --primary-light: #1E4FA5;
+    --secondary: #E31E24;
+    --secondary-dark: #C2171C;
+    --success: #2E7D32;
+    --warning: #F9A825;
+    --light: #F5F7FA;
+    --dark: #1A237E;
+    --gray: #5D6C89;
+    --light-gray: #E8ECF3;
+    --border-radius: 8px;
+    --shadow: 0 4px 12px rgba(13, 56, 128, 0.1);
+    --transition: all 0.3s ease;
+}
+
+/* Общие стили */
+body {
+    background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Навигация */
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.3rem;
+}
+
+/* Карточки */
+.card {
+    border: none;
+    box-shadow: var(--shadow);
+    border-radius: var(--border-radius);
+}
+
+.card-header {
+    background: linear-gradient(to right, var(--primary), var(--primary-dark));
+    color: white;
+    border-bottom: 2px solid var(--secondary);
+}
+
+/* Кнопки */
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, #082055 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(13, 56, 128, 0.2);
+}
+
+/* Аватары */
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(13, 56, 128, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: var(--primary);
+}
+
+/* Badges */
+.badge {
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .navbar-nav {
+        margin-top: 1rem;
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+}
+
+/* Анимации */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease;
+}
+
+/* Сообщения в чате */
+.message {
+    max-width: 85%;
+    padding: 0.9rem;
+    border-radius: var(--border-radius);
+    line-height: 1.4;
+    margin-bottom: 0.9rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.message-user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    border-bottom-right-radius: 3px;
+}
+
+.message-bot {
+    align-self: flex-start;
+    background: white;
+    color: #333;
+    border: 1px solid var(--light-gray);
+    border-bottom-left-radius: 3px;
+}
+
+.message-operator {
+    align-self: flex-start;
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+    color: white;
+    border-bottom-left-radius: 3px;
+}
+
+.message-time {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    margin-top: 0.4rem;
+    text-align: right;
+}
+
+.message-bot .message-time,
+.message-operator .message-time {
+    text-align: left;
+}
+
+.message-sender {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.message-user .message-sender {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Пустые чаты */
+.empty-chat-message {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--gray);
+    font-style: italic;
+}
+
+.empty-chat-message i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Каналы связи */
+.channel-tab {
+    flex: 1;
+    min-width: 110px;
+    background: var(--light);
+    border: 1px solid var(--light-gray);
+    border-radius: 6px;
+    padding: 0.7rem 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: var(--transition);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.channel-tab:hover {
+    background: #e3eaf2;
+}
+
+.channel-tab.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(13, 56, 128, 0.2);
+}
+
+/* Индикатор канала */
+.channel-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--light-gray);
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--primary);
+    margin-left: 0.5rem;
+}
+
+/* Промптер AI */
+.prompter-box {
+    background: rgba(13, 56, 128, 0.08);
+    padding: 0.7rem;
+    border-radius: 6px;
+    margin-top: 0.4rem;
+    border-left: 3px solid var(--primary);
+}
+
+.prompter-title {
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 0.3rem;
+    font-size: 0.85rem;
+}
+
+/* Кнопки рекомендаций */
+.recommendation-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    justify-content: flex-end;
+}
+
+.recommendation-btn {
+    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.recommendation-btn.send {
+    background: linear-gradient(135deg, var(--success) 0%, #1B5E20 100%);
+    color: white;
+}
+
+.recommendation-btn.reject {
+    background: linear-gradient(135deg, var(--secondary) 0%, #B71C1C 100%);
+    color: white;
+}
+
+.recommendation-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* Звонок */
+.call-avatar {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    color: white;
+    margin-bottom: 1rem;
+    box-shadow: 0 6px 16px rgba(13, 56, 128, 0.25);
+}
+
+.call-controls {
+    display: flex;
+    gap: 0.8rem;
+    margin-top: 1rem;
+}
+
+.call-button {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: var(--transition);
+    border: none;
+    color: white;
+}
+
+.call-button.end {
+    background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%);
+    box-shadow: 0 3px 8px rgba(227, 30, 36, 0.25);
+}
+
+.call-button.end:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(227, 30, 36, 0.35);
+}
+
+.call-button.mute {
+    background: linear-gradient(135deg, var(--warning) 0%, #E89C00 100%);
+    box-shadow: 0 3px 8px rgba(249, 168, 37, 0.25);
+}
+
+.call-button.mute:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(249, 168, 37, 0.35);
+}
+
+/* Статус суфлера */
+.sufler-status {
+    background: rgba(46, 125, 50, 0.08);
+    padding: 0.7rem;
+    border-radius: var(--border-radius);
+    border-left: 3px solid var(--success);
+    margin-top: 1rem;
+    width: 100%;
+}
+
+.sufler-status-title {
+    font-weight: 600;
+    color: var(--success);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+}
+
+/* Транскрипция */
+.transcription-container {
+    background: rgba(13, 56, 128, 0.03);
+    padding: 0.9rem;
+    border-top: 2px dashed var(--primary-light);
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.transcription-message {
+    background: white;
+    border-radius: 6px;
+    padding: 0.7rem;
+    border-left: 3px solid var(--warning);
+    animation: slideIn 0.3s ease;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+}
+
+.partial-transcription {
+    background: rgba(249, 168, 37, 0.08);
+    border: 1px dashed var(--warning);
+    font-style: italic;
+    color: #B76E00;
+}
+
+/* Таблицы */
+.table-responsive {
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.table th {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 56, 128, 0.05);
+}
+
+/* Формы */
+.form-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.25rem rgba(13, 56, 128, 0.25);
+}

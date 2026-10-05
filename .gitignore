@@ -1,0 +1,113 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.env
+.env.local
+**/.env.local
+backend/services/asr/model/
+backend/var/
+
+# TEST Postgres dumps (backup stub)
+infra/test/backups/
+
+# TEST edge TLS private material (self-signed or bank CA)
+infra/test/certs/*.pem
+infra/test/certs/*.key
+infra/test/certs/*.crt
+!infra/test/certs/README.md
+
+# Django
+*.sqlite3
+db.sqlite3
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.swp
+.cursor/
+.idea/
+
+# Temp extraction artifacts (DOCX unzip)
+docs/remarks/**/_extracted/
+docs/remarks/**/_reply_work/
+docs/remarks/**/_tmp_check/
+
+# Pipeline temp
+**/mermaid-filter.err
+**/_pipeline_status.txt
+
+# Local KB drop-ins: ignore by default, keep manual seed folder in git
+local/*
+!local/kb/
+local/kb/*
+!local/kb/manual/
+!local/kb/manual/**
+
+# Local CPU model weights / llama.cpp binaries
+models/
+
+# Not part of the running project (kept on disk)
+docs/hr/
+docs/sources/анкета по киберустойчивости/
+scripts/stage_hr_docs.py
+scripts/upload_hr_policies.py
+reports/
+**/CONTINUATION.md
+
+# Scratch, unpacked docs, and generated Word (kept on disk, not in git)
+/_extracted/
+/_tmp_*/
+/_tmp_*
+/_*.txt
+/_*.py
+/_*.md
+/_*.json
+/_*.tsv
+/_*.xlsx
+/TZ-assistant.docx
+backend/celerybeat-schedule
+frontend/_tmp_auth_out.txt
+docs/remarks/
+docs/sources/meeting-protocols/
+docs/sources/**/_extracted/
+docs/sources/**/_struct/
+docs/sources/**/_struct.zip
+docs/sources/**/outgoing/docx/
+docs/integration/**/_mermaid_tmp/
+docs/integration/**/export-to-word.ps1
+docs/modules/ai-hub/*
+!docs/modules/ai-hub/README.md
+!docs/modules/ai-hub/TZ-unified-v1.8 (МИХ).docx
+docs/modules/ai-assistant/tz-*.md
+docs/integration/**/tz-*.md
+docs/integration/**/TZ-*.docx
+docs/integration/**/_*.py
+docs/integration/**/_*.md
+docs/api/**/_generate_*.py
+docs/sources/_extracted_*.txt
+docs/sources/**/struct_extracted.txt
+docs/sources/**/_struct_text.txt
+docs/sources/**/_template-dokumenta.md
+docs/sources/**/export-to-docx.py
+docs/sources/**/export-to-word.ps1
+canvases/*.status.json
+canvases/_copy_verify.py
+canvases/_copy_verify_result.txt
+
+# Local dumps and collections with live tokens (never commit)
+/tmp_drive_hr_docs/
+/tmp_hr_stage/
+/tmp_hr_*.txt
+/tmp_idp_samples/
+/tmp_ocr_samples/
+/образец_для_бз*.txt
+docs/api/postman_suz_*_ready.json
+docs/runbooks/dev-contour-oktell-sufler.md
+docs/runbooks/dev-contour-oktell-sufler.html
+docs/runbooks/dev-contour-oktell-sufler.docx
+docs/runbooks/dev-contour-oktell-sufler-2.docx
+docs/runbooks/*.png

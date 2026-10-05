@@ -1,0 +1,75 @@
+# CPU-only LLM manager + llama.cpp server (no GPU).
+# Build context: infra/local-inference
+#
+# Build llama-server from source on bookworm and ship bin/ + all .so together.
+# Runtime uses LD_LIBRARY_PATH=/opt/llama (thin llama-server wrapper ~18KB).
+
+FROM python:3.12-slim-bookworm AS llama-build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential cmake git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+RUN git clone --depth 1 https://github.com/ggml-org/llama.cpp.git
+WORKDIR /src/llama.cpp
+
+RUN cmake -S . -B build \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DGGML_NATIVE=OFF \
+      -DLLAMA_CURL=OFF \
+      -DLLAMA_BUILD_TESTS=OFF \
+      -DLLAMA_BUILD_EXAMPLES=OFF \
+ && cmake --build build --config Release -j"$(nproc)" --target llama-server \
+ && mkdir -p /out \
+ && cp -a build/bin/. /out/ \
+ && find build -name "*.so*" -exec cp -an {} /out/ \; \
+ && chmod +x /out/llama-server \
+ && ls -la /out \
+ && LD_LIBRARY_PATH=/out ldd /out/llama-server
+
+FROM python:3.12-slim-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=llama-build /out/ /opt/llama/
+
+ENV PYTHONUNBUFFERED=1 \
+    LD_LIBRARY_PATH=/opt/llama \
+    LLM_MANAGER_HOST=0.0.0.0 \
+    LLM_MANAGER_PORT=8070 \
+    LLAMA_HOST=0.0.0.0 \
+    LLAMA_PORT=8080 \
+    LLAMA_SERVER_PATH=/opt/llama/llama-server \
+    MODELS_DIR=/models \
+    GGUF_DIR=/models/llm \
+    CATALOG_PATH=/opt/llm/models.json \
+    STATE_PATH=/var/lib/llm-manager/state.json \
+    LLM_DEFAULT_MODEL_ID=qwen2.5-1.5b-instruct
+
+RUN set -eux; \
+    test -x /opt/llama/llama-server; \
+    ln -sf /opt/llama/llama-server /usr/local/bin/llama-server; \
+    LD_LIBRARY_PATH=/opt/llama ldd /opt/llama/llama-server | tee /tmp/ldd.txt; \
+    if LD_LIBRARY_PATH=/opt/llama ldd /opt/llama/llama-server | grep -E '=> not found'; then \
+      echo "Missing shared libraries for llama-server"; \
+      ls -la /opt/llama; \
+      exit 1; \
+    fi; \
+    # Smoke: wrapper must resolve impl libs (help may exit non-zero without model).
+    LD_LIBRARY_PATH=/opt/llama /opt/llama/llama-server -h >/tmp/help.txt 2>&1 || true; \
+    test -s /tmp/help.txt; \
+    head -n 15 /tmp/help.txt
+
+COPY llm_manager.py models.json /opt/llm/
+
+RUN mkdir -p /models/llm /var/lib/llm-manager
+
+EXPOSE 8070 8080
+HEALTHCHECK --interval=15s --timeout=5s --retries=12 --start-period=120s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8070/health', timeout=3)"
+
+WORKDIR /opt/llm
+CMD ["python", "/opt/llm/llm_manager.py"]

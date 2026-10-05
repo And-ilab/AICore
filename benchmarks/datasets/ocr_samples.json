@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0",
+  "id": "ocr-synthetic-samples",
+  "version": "1.0",
+  "description": "Synthetic banking document paths and expected OCR fields; source files are pending generation.",
+  "modules": ["ocr", "llm"],
+  "tasks": ["text-recognition", "document-classification", "field-extraction"],
+  "status": "placeholder",
+  "source": {
+    "type": "synthetic",
+    "path": "benchmarks/datasets/assets/ocr",
+    "contains_personal_data": false
+  },
+  "samples": [
+    {
+      "id": "OCR-SYN-001",
+      "input": {
+        "document_path": "benchmarks/datasets/assets/ocr/OCR-SYN-001-account-statement.png",
+        "mime_type": "image/png",
+        "language": "ru",
+        "ocr_text": "Выписка по счёту BY00TEST00000000000000000000. Валюта BYN. Период 01.06.2026–30.06.2026. Входящий остаток 1250.00. Исходящий остаток 980.50."
+      },
+      "expected": {
+        "document_type": "account_statement",
+        "fields": ["account_number", "currency", "period", "opening_balance", "closing_balance"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "OCR-SYN-002",
+      "input": {
+        "document_path": "benchmarks/datasets/assets/ocr/OCR-SYN-002-payment-order.pdf",
+        "mime_type": "application/pdf",
+        "language": "ru",
+        "ocr_text": "Платёжное поручение № 42 от 20.07.2026. Плательщик ООО Альфа. Получатель ООО Бета. Сумма 1500.00 BYN. Назначение: оплата услуг."
+      },
+      "expected": {
+        "document_type": "payment_order",
+        "fields": ["document_number", "date", "payer", "beneficiary", "amount", "purpose"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "OCR-SYN-003",
+      "input": {
+        "document_path": "benchmarks/datasets/assets/ocr/OCR-SYN-003-loan-agreement.pdf",
+        "mime_type": "application/pdf",
+        "language": "ru",
+        "ocr_text": "Кредитный договор № KD-2026-17 от 15.07.2026. Основная сумма 10000 BYN. Процентная ставка 12.5%. Срок 24 месяца."
+      },
+      "expected": {
+        "document_type": "loan_agreement",
+        "fields": ["agreement_number", "agreement_date", "principal", "interest_rate", "term"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "OCR-SYN-004",
+      "input": {
+        "document_path": "benchmarks/datasets/assets/ocr/OCR-SYN-004-application.png",
+        "mime_type": "image/png",
+        "language": "ru",
+        "ocr_text": "Заявление № APP-104 от 18.07.2026. Продукт: платёжная карта. Подпись заявителя присутствует."
+      },
+      "expected": {
+        "document_type": "banking_application",
+        "fields": ["application_number", "application_date", "product", "signature_present"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    },
+    {
+      "id": "OCR-SYN-005",
+      "input": {
+        "document_path": "benchmarks/datasets/assets/ocr/OCR-SYN-005-receipt.jpg",
+        "mime_type": "image/jpeg",
+        "language": "ru",
+        "ocr_text": "Квитанция. Операция 20.07.2026. ID операции OP-9001. Сумма 75.30 BYN. Статус: выполнено."
+      },
+      "expected": {
+        "document_type": "payment_receipt",
+        "fields": ["operation_date", "operation_id", "amount", "currency", "status"]
+      },
+      "synthetic": true,
+      "status": "placeholder"
+    }
+  ]
+}

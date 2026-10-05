@@ -1,0 +1,35 @@
+# Alert rule stub — Sufler TEST uptime
+# Load via Prometheus rule_files / Prometheus Operator PrometheusRule CRD.
+# Pair with Alertmanager routes for severity: critical.
+
+groups:
+  - name: sufler-test-health
+    rules:
+      - alert: SuflerTestHealthFail
+        expr: sufler_health_ok{job="sufler-test"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: test
+          service: sufler
+        annotations:
+          summary: "Sufler TEST /health/ would fail"
+          description: >-
+            sufler_health_ok is 0 for job sufler-test (database and/or redis
+            probe failing). Check https://ai-hub-test.bank.local/health/ and
+            Compose services backend/postgres/redis.
+          runbook: infra/test/observability/README.md
+
+      - alert: SuflerTestTargetDown
+        expr: up{job="sufler-test"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: test
+          service: sufler
+        annotations:
+          summary: "Sufler TEST metrics target down"
+          description: >-
+            Prometheus cannot scrape /metrics/ for job sufler-test. Edge,
+            Daphne, or network ACL may be down — uptime unknown.
+          runbook: infra/test/observability/README.md

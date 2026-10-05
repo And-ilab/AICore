@@ -1,0 +1,157 @@
+{
+  "schema_version": "1.0",
+  "id": "embedding-suz-recall",
+  "version": "1.0",
+  "description": "Synthetic SUZ-like documents and labeled queries for recall@5 calibration.",
+  "modules": ["embedding", "llm"],
+  "tasks": ["retrieval", "recall-at-5", "chunk-calibration", "threshold-calibration"],
+  "status": "ready",
+  "source": {
+    "type": "synthetic",
+    "path": "benchmarks/datasets/embedding_recall.json",
+    "requirements": ["FR-LLM-03", "FR-LLM-04", "FR-LLM-05"],
+    "contains_personal_data": false
+  },
+  "samples": [
+    {
+      "id": "EMB-SUZ-001",
+      "document": {"id": "SUZ-DOC-001", "title": "Открытие счёта несовершеннолетнему", "text": "Для открытия счёта несовершеннолетнему учитываются возраст, вид счёта и необходимость согласия законного представителя.", "source_path": "suz://synthetic/accounts/minor"},
+      "query": "Можно ли открыть счёт в четырнадцать лет?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-001"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-002",
+      "document": {"id": "SUZ-DOC-002", "title": "Вклад на имя ребёнка", "text": "Вклад на имя ребёнка до 14 лет открывается при предъявлении документов ребёнка и заявителя.", "source_path": "suz://synthetic/deposits/child"},
+      "query": "Как оформить вклад для шестилетнего внука?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-002"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-003",
+      "document": {"id": "SUZ-DOC-003", "title": "Бесконтактная оплата телефоном", "text": "Доступность NFC-оплаты зависит от операционной системы телефона, платёжной системы карты и поддерживаемого кошелька.", "source_path": "suz://synthetic/cards/nfc"},
+      "query": "Какие карты можно добавить для оплаты телефоном?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-003"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-004",
+      "document": {"id": "SUZ-DOC-004", "title": "Кредит на автомобиль", "text": "Условия автокредита зависят от возраста автомобиля, продавца, марки и выбранной кредитной программы.", "source_path": "suz://synthetic/loans/car"},
+      "query": "Можно ли получить кредит на подержанный автомобиль?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-004"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-005",
+      "document": {"id": "SUZ-DOC-005", "title": "Переводы в Российскую Федерацию", "text": "Перевод физическому лицу в РФ может выполняться на карту, по номеру телефона через СБП или по банковским реквизитам.", "source_path": "suz://synthetic/transfers/russia"},
+      "query": "Как отправить деньги человеку в Россию?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-005"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-006",
+      "document": {"id": "SUZ-DOC-006", "title": "Получение и смена ПИН-кода", "text": "ПИН-код карты можно получить или изменить через поддерживаемые дистанционные каналы, инфокиоск либо отделение.", "source_path": "suz://synthetic/cards/pin"},
+      "query": "Я забыл код карты, где его поменять?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-006"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-007",
+      "document": {"id": "SUZ-DOC-007", "title": "Выписка для подачи на визу", "text": "Выписка по счёту для визы доступна на русском или английском языке через дистанционные каналы и отделение.", "source_path": "suz://synthetic/accounts/visa-statement"},
+      "query": "Мне нужна банковская выписка на английском для посольства.",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-007"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-008",
+      "document": {"id": "SUZ-DOC-008", "title": "Окончание срока строительных сбережений", "text": "После завершения срока накопления клиент выбирает продолжение накопления либо оформление расчёта и кредита на жильё.", "source_path": "suz://synthetic/deposits/construction-savings"},
+      "query": "Что делать после окончания вклада по стройсбережениям?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-008"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-009",
+      "document": {"id": "SUZ-DOC-009", "title": "Перевод средств на криптобиржу", "text": "Операции с криптобиржами выполняются только через разрешённые площадки и поддерживаемые банковские карты.", "source_path": "suz://synthetic/transfers/crypto"},
+      "query": "Разрешён ли перевод денег на криптобиржу?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-009"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-010",
+      "document": {"id": "SUZ-DOC-010", "title": "Проверка подлинности российских рублей", "text": "Банк принимает банкноты российских рублей на проверку подлинности или инкассо в соответствии с тарифами.", "source_path": "suz://synthetic/cash/rub-authenticity"},
+      "query": "Где проверить российские купюры?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-010"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-011",
+      "document": {"id": "SUZ-DOC-011", "title": "Блокировка платёжной карты", "text": "При утрате карты клиент должен немедленно заблокировать её в мобильном банкинге или через контакт-центр.", "source_path": "suz://synthetic/cards/block"},
+      "query": "Я потерял карту, как срочно её отключить?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-011"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-012",
+      "document": {"id": "SUZ-DOC-012", "title": "Подключение интернет-банкинга", "text": "Для подключения интернет-банкинга необходимо зарегистрироваться, подтвердить личность и создать данные для безопасного входа.", "source_path": "suz://synthetic/digital/internet-banking"},
+      "query": "Как зарегистрироваться в интернет-банке?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-012"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-013",
+      "document": {"id": "SUZ-DOC-013", "title": "Досрочное погашение кредита", "text": "Кредит можно погасить досрочно полностью или частично после подачи заявления и обеспечения суммы на счёте.", "source_path": "suz://synthetic/loans/early-repayment"},
+      "query": "Хочу раньше срока вернуть часть кредита.",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-013"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-014",
+      "document": {"id": "SUZ-DOC-014", "title": "Курсы обмена валют", "text": "Курсы покупки и продажи валют различаются по каналам и могут изменяться в течение операционного дня.", "source_path": "suz://synthetic/currency/rates"},
+      "query": "По какому курсу сегодня можно купить евро?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-014"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-015",
+      "document": {"id": "SUZ-DOC-015", "title": "Банковская гарантия для бизнеса", "text": "Банковская гарантия обеспечивает обязательства компании перед заказчиком и оформляется после оценки документов и лимита.", "source_path": "suz://synthetic/business/guarantee"},
+      "query": "Какие документы нужны компании для получения гарантии?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-015"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-016",
+      "document": {"id": "SUZ-DOC-016", "title": "Торговый эквайринг", "text": "Эквайринг позволяет организации принимать оплату картами через терминал после заключения договора с банком.", "source_path": "suz://synthetic/business/acquiring"},
+      "query": "Как установить терминал для приёма карт в магазине?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-016"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-017",
+      "document": {"id": "SUZ-DOC-017", "title": "Процентные ставки по вкладам", "text": "Ставка по вкладу зависит от срока, валюты, суммы, порядка выплаты процентов и способа оформления.", "source_path": "suz://synthetic/deposits/rates"},
+      "query": "От чего зависит доходность депозита?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-017"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-018",
+      "document": {"id": "SUZ-DOC-018", "title": "Номер счёта в формате IBAN", "text": "IBAN используется для идентификации банковского счёта при внутренних и международных переводах.", "source_path": "suz://synthetic/accounts/iban"},
+      "query": "Где найти международный номер моего счёта?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-018"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-019",
+      "document": {"id": "SUZ-DOC-019", "title": "Оплата услуг через ЕРИП", "text": "В ЕРИП услуга выбирается по дереву платежей или коду, после чего клиент проверяет реквизиты и подтверждает оплату.", "source_path": "suz://synthetic/payments/erip"},
+      "query": "Как оплатить коммунальные услуги через ЕРИП?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-019"], "top_k": 5},
+      "status": "ready"
+    },
+    {
+      "id": "EMB-SUZ-020",
+      "document": {"id": "SUZ-DOC-020", "title": "Операции по доверенности", "text": "Представитель клиента выполняет разрешённые операции при наличии действительной доверенности и документа, удостоверяющего личность.", "source_path": "suz://synthetic/accounts/power-of-attorney"},
+      "query": "Может ли другой человек получить деньги по моей доверенности?",
+      "expected": {"relevant_document_ids": ["SUZ-DOC-020"], "top_k": 5},
+      "status": "ready"
+    }
+  ]
+}

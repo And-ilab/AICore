@@ -1,0 +1,161 @@
+{
+  "info": {
+    "name": "Sufler OCR API (P6-01a)",
+    "description": "Integrator demo: upload → poll → result. Variables: base_url + access_token. Requires ocr.use. Template and ML modes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "sufler-ocr-p6-01a"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "job_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Upload template",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 202 || pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "",
+              "description": "PDF / JPG / PNG / TIFF"
+            },
+            {
+              "key": "doc_type",
+              "type": "text",
+              "value": "passport"
+            },
+            {
+              "key": "mode",
+              "type": "text",
+              "value": "template"
+            }
+          ]
+        },
+        "url": "{{base_url}}/api/v1/ocr/jobs/",
+        "description": "Enqueue OCR with a known template. Saves job_id."
+      }
+    },
+    {
+      "name": "2. Poll job status",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/ocr/jobs/{{job_id}}/",
+        "description": "status, progress, error. Repeat until completed or processing_error."
+      }
+    },
+    {
+      "name": "3. Get result fields",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/ocr/jobs/{{job_id}}/result/",
+        "description": "JSON fields + confidence. 409 if not ready."
+      }
+    },
+    {
+      "name": "4. Upload ML auto-detect",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.response.code === 202 || pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  if (body.job_id) { pm.collectionVariables.set('job_id', body.job_id); }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "",
+              "description": "PDF / JPG / PNG / TIFF"
+            },
+            {
+              "key": "mode",
+              "type": "text",
+              "value": "ml"
+            }
+          ]
+        },
+        "url": "{{base_url}}/api/v1/ocr/jobs/",
+        "description": "Enqueue OCR without doc_type; type is auto-detected. Then reuse poll + result."
+      }
+    }
+  ]
+}
