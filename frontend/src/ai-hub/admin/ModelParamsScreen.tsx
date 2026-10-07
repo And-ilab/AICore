@@ -627,14 +627,6 @@ export const ModelParamsScreen = forwardRef<
             <span>Контекстное окно</span>
             <strong>{data.read_only.context_window ?? '≥8200'}</strong>
           </Card>
-          <ModelSelect
-            label="Модель LLM"
-            testId="model-params-llm-select"
-            value={form.selection?.llm ?? ''}
-            options={llmOptions(data)}
-            disabled={!canEdit}
-            onChange={(modelId) => setSelection('llm', modelId)}
-          />
           {isCc ? (
             <>
               <ModelSelect
@@ -660,7 +652,16 @@ export const ModelParamsScreen = forwardRef<
                 onChange={(modelId) => setSelection('answer', modelId)}
               />
             </>
-          ) : null}
+          ) : (
+            <ModelSelect
+              label="Модель LLM"
+              testId="model-params-llm-select"
+              value={form.selection?.llm ?? ''}
+              options={llmOptions(data)}
+              disabled={!canEdit}
+              onChange={(modelId) => setSelection('llm', modelId)}
+            />
+          )}
         </section>
       </div>
 
