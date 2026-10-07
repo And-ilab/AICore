@@ -117,6 +117,29 @@ class ModelRegistrySettings(models.Model):
         return self.profile
 
 
+class SlotModelSelection(models.Model):
+    """Admin-chosen runtime model for one product slot."""
+
+    SLOT_ASSISTANT = "llm_assistant_bank"
+    SLOT_SUFLER = "llm_sufler_cc"
+    SLOT_SPEECH = "sufler_speech"
+    SLOT_ANSWER = "sufler_answer"
+    SLOT_OCR = "llm_docs_ocr"
+
+    slot = models.CharField(max_length=64, unique=True)
+    model_id = models.CharField(max_length=200)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ("slot",)
+        verbose_name = "Slot model selection"
+        verbose_name_plural = "Slot model selections"
+
+    def __str__(self) -> str:
+        return f"{self.slot}:{self.model_id}"
+
+
 class ContactCenterKnowledgeBase(models.Model):
     """Admin-managed KB for contact-center sufler (FR-CC-08)."""
 

@@ -39,7 +39,7 @@ async function parseError(response: Response): Promise<string> {
 
 /** Hide vendor names in the toolbar; routing still uses the real model id. */
 export function displayModelLabel(id: string, label: string): string {
-  if (`${id} ${label}`.toLowerCase().includes('deepseek')) return 'модель 1'
+  if (`${id} ${label}`.toLowerCase().includes('deepseek')) return 'модель1'
   return label
 }
 

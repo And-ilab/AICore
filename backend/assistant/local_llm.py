@@ -118,8 +118,8 @@ def _get_json(url: str, *, timeout: float | None = None) -> Any:
     return json.loads(raw or "{}")
 
 
-def _list_pulled_models() -> list[dict[str, Any]]:
-    payload = _get_json(f"{ollama_base_url()}/api/tags", timeout=5.0)
+def _list_pulled_models(*, timeout: float = 5.0) -> list[dict[str, Any]]:
+    payload = _get_json(f"{ollama_base_url()}/api/tags", timeout=timeout)
     models: list[dict[str, Any]] = []
     for item in payload.get("models") or []:
         if not isinstance(item, dict):
@@ -182,7 +182,7 @@ def _deepseek_status() -> dict[str, Any]:
         "models": [
             {
                 "id": model,
-                "label": "модель 1",
+                "label": "модель1",
                 "description": "",
                 "available": True,
             }
@@ -255,9 +255,7 @@ def select_model(model_id: str) -> dict[str, Any]:
     if is_deepseek_assistant():
         active = _deepseek_model_id()
         if model_id != active:
-            raise ValueError(
-                f"Qwen/Ollama отключены. Активна облачная модель {active}."
-            )
+            raise ValueError("Сейчас доступна только модель1.")
         return get_models_status()
     try:
         models = _list_pulled_models()

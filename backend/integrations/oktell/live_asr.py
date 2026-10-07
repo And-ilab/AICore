@@ -92,7 +92,12 @@ def _candidate_paths() -> list[Path]:
             service_dir.parents[2] / "recognizer" / "model" / "vosk-model-ru-0.22",
         ]
     )
-    return candidates
+    try:
+        from hub.model_catalog import prioritize_speech_paths
+
+        return prioritize_speech_paths(candidates)
+    except Exception:
+        return candidates
 
 
 def _model_path() -> Path | None:

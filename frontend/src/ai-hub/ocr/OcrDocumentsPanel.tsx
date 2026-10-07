@@ -26,6 +26,7 @@ import {
   type OcrUserTemplate,
   type OcrUserTemplateField,
 } from '../admin/api/ocrAdmin'
+import { OcrModelPicker } from './OcrModelPicker'
 import {
   OPERATOR_DOC_TITLES,
   OPERATOR_DOC_TYPES,
@@ -1402,6 +1403,7 @@ export function OcrDocumentsPanel({
             {label}
           </button>
         ))}
+        <OcrModelPicker />
         {onClose ? (
           <button
             type="button"

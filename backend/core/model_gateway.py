@@ -122,6 +122,37 @@ def _is_deepseek_url(url: str) -> bool:
     return "deepseek.com" in (url or "").lower()
 
 
+def _is_vendor_model(model_id: str) -> bool:
+    return "deepseek" in (model_id or "").lower()
+
+
+def _stored_profile_model(profile: str) -> str:
+    try:
+        from hub.model_catalog import selected_llm_for_profile
+
+        return (selected_llm_for_profile(profile) or "").strip()
+    except Exception:
+        return ""
+
+
+def _stored_answer_model() -> str:
+    try:
+        from hub.model_catalog import SLOT_ANSWER, selected_model
+
+        return (selected_model(SLOT_ANSWER) or "").strip()
+    except Exception:
+        return ""
+
+
+def _local_openai_base() -> str:
+    raw = (
+        os.environ.get("OLLAMA_BASE_URL") or "http://ollama:11434"
+    ).strip().rstrip("/")
+    if raw.endswith("/v1"):
+        return raw
+    return f"{raw}/v1"
+
+
 def _ollama_openai_base() -> str:
     raw = (os.environ.get("OLLAMA_BASE_URL") or "").strip().rstrip("/")
     if not raw:
@@ -274,7 +305,22 @@ class ModelGateway:
         """Return the model identifier actually sent to the active provider."""
         return self._resolve_model(self.get_profile(profile))
 
-    def _mode_for(self, profile: GatewayProfile) -> str:
+    def _mode_for(self, profile: GatewayProfile, model_id: str = "") -> str:
+        mode = self._mode_from_env(profile)
+        chosen = (model_id or "").strip()
+        if (
+            mode != "openai"
+            and chosen
+            and not chosen.startswith("stub:")
+            and chosen in {self._stored_for(profile), _stored_answer_model()}
+        ):
+            return "openai"
+        return mode
+
+    def _stored_for(self, profile: GatewayProfile) -> str:
+        return _stored_profile_model(profile.profile)
+
+    def _mode_from_env(self, profile: GatewayProfile) -> str:
         if profile.profile == SUFLER_PROFILE:
             if (os.environ.get("SUFLER_LLM_BASE_URL") or "").strip() or _is_deepseek_url(
                 os.environ.get("OPENAI_BASE_URL") or self._base_url or ""
@@ -324,8 +370,20 @@ class ModelGateway:
                 return sufler_key
         return self._api_key or os.environ.get("OPENAI_API_KEY") or ""
 
-    def _openai_endpoint(self, profile: GatewayProfile) -> str:
-        base_url = self._base_url_for(profile)
+    def _base_url_for_model(self, profile: GatewayProfile, model_id: str) -> str:
+        chosen = (model_id or "").strip()
+        if (
+            chosen
+            and not chosen.startswith("stub:")
+            and not _is_vendor_model(chosen)
+            and chosen in {self._stored_for(profile), _stored_answer_model()}
+        ):
+            return _local_openai_base()
+        return self._base_url_for(profile)
+
+    def _openai_endpoint(self, profile: GatewayProfile, model_id: str = "") -> str:
+        resolved = (model_id or self._resolve_model(profile)).strip()
+        base_url = self._base_url_for_model(profile, resolved)
         if not base_url:
             if profile.profile == SUFLER_PROFILE:
                 message = "OPENAI_BASE_URL is required in openai mode"
@@ -342,7 +400,7 @@ class ModelGateway:
                     "for assistant openai mode"
                 )
             raise ModelGatewayConfigurationError(message)
-        if self._resolve_model(profile).startswith("stub:"):
+        if resolved.startswith("stub:"):
             raise ModelGatewayConfigurationError(
                 f"Profile {profile.profile!r} requires a real model "
                 "in openai mode"
@@ -356,8 +414,17 @@ class ModelGateway:
             headers["Authorization"] = f"Bearer {api_key}"
         return headers
 
-    def _resolve_model(self, profile: GatewayProfile) -> str:
-        """Sufler and assistant prefer SUFLER_LLM_* / ASSISTANT_LLM_* (DeepSeek)."""
+    def _resolve_model(
+        self,
+        profile: GatewayProfile,
+        override: str | None = None,
+    ) -> str:
+        """Saved admin choice, then env routing for this profile."""
+        if isinstance(override, str) and override.strip():
+            return override.strip()
+        chosen = self._stored_for(profile)
+        if chosen:
+            return chosen
         if profile.profile == SUFLER_PROFILE:
             dedicated = (os.environ.get("SUFLER_LLM_MODEL") or "").strip()
             if dedicated:
@@ -417,11 +484,18 @@ class ModelGateway:
         stream: bool,
         parameters: Mapping[str, Any],
     ) -> dict[str, Any]:
+        runtime_model = parameters.get("runtime_model")
+        cleaned = {
+            key: value
+            for key, value in parameters.items()
+            if key != "runtime_model"
+        }
+        override = runtime_model if isinstance(runtime_model, str) else None
         return {
-            "model": self._resolve_model(profile),
+            "model": self._resolve_model(profile, override),
             "messages": _validate_messages(messages),
             "stream": stream,
-            **_validate_parameters(parameters),
+            **_validate_parameters(cleaned),
         }
 
     def chat(
@@ -431,20 +505,30 @@ class ModelGateway:
         **parameters: Any,
     ) -> dict[str, Any]:
         configured = self.get_profile(profile)
+        runtime_model = parameters.pop("runtime_model", None)
+        if runtime_model is not None and not isinstance(runtime_model, str):
+            raise ModelGatewayConfigurationError(
+                "runtime_model must be a string"
+            )
+        if isinstance(runtime_model, str):
+            parameters["runtime_model"] = runtime_model
         payload = self._payload(
             configured,
             messages,
             stream=False,
             parameters=parameters,
         )
-        if self._mode_for(configured) == "stub":
+        if self._mode_for(configured, str(payload.get("model") or "")) == "stub":
             return self._stub_chat(
                 configured,
                 payload["messages"],
                 payload,
             )
 
-        endpoint = self._openai_endpoint(configured)
+        endpoint = self._openai_endpoint(
+            configured,
+            str(payload.get("model") or ""),
+        )
         timeout = self._timeout_seconds
         if configured.profile == SUFLER_PROFILE:
             timeout = min(timeout, 45.0)
@@ -482,7 +566,7 @@ class ModelGateway:
             stream=True,
             parameters=parameters,
         )
-        if self._mode_for(configured) == "stub":
+        if self._mode_for(configured, str(payload.get("model") or "")) == "stub":
             return iter(self._stub_stream(configured))
         return self._openai_stream(configured, payload)
 
@@ -612,7 +696,10 @@ class ModelGateway:
         profile: GatewayProfile,
         payload: Mapping[str, Any],
     ) -> Iterator[str]:
-        endpoint = self._openai_endpoint(profile)
+        endpoint = self._openai_endpoint(
+            profile,
+            str(payload.get("model") or ""),
+        )
 
         def generate() -> Iterator[str]:
             try:

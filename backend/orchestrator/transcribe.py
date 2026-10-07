@@ -85,8 +85,15 @@ def _vosk_model_path() -> Path | None:
         / "model"
         / "vosk-model-ru-0.22",
     ]
-    for candidate in candidates:
-        if candidate is not None and _looks_like_vosk_model(candidate):
+    ordered = [candidate for candidate in candidates if candidate is not None]
+    try:
+        from hub.model_catalog import prioritize_speech_paths
+
+        ordered = prioritize_speech_paths(ordered)
+    except Exception:
+        pass
+    for candidate in ordered:
+        if _looks_like_vosk_model(candidate):
             return candidate
     return None
 

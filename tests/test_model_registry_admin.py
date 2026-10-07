@@ -155,3 +155,73 @@ class ModelRegistryAdminIntegrationTest(TestCase):
         response = Client().get(f"{self.url}?profile=assistant_bank")
 
         self.assertEqual(response.status_code, 401)
+
+    def test_sufler_model_selection_roundtrip(self):
+        client = Client()
+        client.force_login(
+            self.user_for_role("contact_center_module_administrator")
+        )
+        loaded = client.get(f"{self.url}?profile=sufler_cc")
+        self.assertEqual(loaded.status_code, 200)
+        choices = loaded.json()["model_choices"]
+        self.assertIn("llm", choices)
+        self.assertIn("speech", choices)
+        self.assertIn("answer", choices)
+        for group in (choices["llm"], choices["speech"], choices["answer"]):
+            for option in group["options"]:
+                label = option["label"].lower()
+                self.assertNotIn("deepseek", label)
+                self.assertNotIn("дипсик", label)
+        llm_id = choices["llm"]["options"][0]["id"]
+        speech_id = choices["speech"]["options"][0]["id"]
+        answer_id = choices["answer"]["options"][-1]["id"]
+        payload = self.payload(
+            generation={"temperature": 0.2, "response_chars_max": 400}
+        )
+        payload["selection"] = {
+            "llm": llm_id,
+            "speech": speech_id,
+            "answer": answer_id,
+        }
+        saved = client.put(
+            f"{self.url}?profile=sufler_cc",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.content)
+        stored = saved.json()["model_choices"]
+        self.assertEqual(stored["llm"]["selected"], llm_id)
+        self.assertEqual(stored["speech"]["selected"], speech_id)
+        self.assertEqual(stored["answer"]["selected"], answer_id)
+        self.assertNotIn("deepseek", stored["llm"]["options"][0]["label"].lower())
+
+    def test_assistant_rejects_speech_selection(self):
+        client = Client()
+        client.force_login(
+            self.user_for_role("llm_knowledge_base_administrator")
+        )
+        payload = self.payload()
+        payload["selection"] = {"speech": "vosk-model-small-ru-0.22"}
+        response = client.put(
+            f"{self.url}?profile=assistant_bank",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_ocr_model_choice_roundtrip(self):
+        client = Client()
+        client.force_login(self.user_for_role("software_administrator"))
+        loaded = client.get("/api/admin/model-registry/ocr-model/")
+        self.assertEqual(loaded.status_code, 200)
+        body = loaded.json()
+        model_id = body["models"][0]["id"]
+        for option in body["models"]:
+            self.assertNotIn("deepseek", option["label"].lower())
+        saved = client.put(
+            "/api/admin/model-registry/ocr-model/",
+            data=json.dumps({"model_id": model_id}),
+            content_type="application/json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.content)
+        self.assertEqual(saved.json()["selected_model"], model_id)

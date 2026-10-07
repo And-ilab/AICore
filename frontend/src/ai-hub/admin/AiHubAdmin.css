@@ -537,17 +537,29 @@
   background: var(--color-danger-bg);
 }
 
+.model-params__column--model .ui-card,
 .model-params__column--readonly .ui-card {
   display: grid;
   gap: 4px;
   padding: var(--space-3);
 }
 
+.model-params__column--model span,
 .model-params__column--readonly span {
   color: var(--color-text-muted);
   font-size: .75rem;
 }
 
+.model-params__row--model {
+  grid-template-columns: minmax(96px, 0.7fr) minmax(0, 1.6fr);
+}
+
+.model-params__row--model select {
+  width: 100%;
+  min-width: 0;
+}
+
+.model-params__column--model strong,
 .model-params__column--readonly strong {
   font-size: 1.05rem;
 }

@@ -70,6 +70,7 @@ from hub.kb_admin import (
     reindex_knowledge_base,
     upload_document,
 )
+from hub.model_catalog import apply_profile_selection, choices_for_ocr
 from hub.model_registry_store import (
     get_model_settings,
     serialize_model_settings,
@@ -156,7 +157,9 @@ def _check_profile_access(
     )
 
 
-def _parse_update_payload(request: HttpRequest) -> dict[str, Any]:
+def _parse_update_payload(
+    request: HttpRequest,
+) -> tuple[dict[str, Any], dict[str, str]]:
     try:
         body = json.loads(request.body or b"{}")
     except json.JSONDecodeError as exc:
@@ -167,7 +170,7 @@ def _parse_update_payload(request: HttpRequest) -> dict[str, Any]:
     rag = body.get("rag", {})
     if not isinstance(generation, Mapping) or not isinstance(rag, Mapping):
         raise ValueError("generation and rag must be JSON objects")
-    allowed_root = {"generation", "rag"}
+    allowed_root = {"generation", "rag", "selection"}
     unknown_root = set(body) - allowed_root
     if unknown_root:
         raise ValueError(
@@ -218,7 +221,25 @@ def _parse_update_payload(request: HttpRequest) -> dict[str, Any]:
     }
     if "preset" in generation:
         flat["preset"] = generation.get("preset")
-    return flat
+    selection = body.get("selection") or {}
+    parsed_selection: dict[str, str] = {}
+    if selection:
+        if not isinstance(selection, Mapping):
+            raise ValueError("selection must be a JSON object")
+        unknown_selection = set(selection) - {"llm", "speech", "answer"}
+        if unknown_selection:
+            raise ValueError(
+                "selection has unknown fields: "
+                f"{', '.join(sorted(unknown_selection))}"
+            )
+        for key in ("llm", "speech", "answer"):
+            if key not in selection or selection[key] in (None, ""):
+                continue
+            value = selection[key]
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"selection.{key} must be a non-empty string")
+            parsed_selection[key] = value.strip()
+    return flat, parsed_selection
 
 
 @require_http_methods(["GET", "PUT"])
@@ -237,12 +258,18 @@ def model_params(request: HttpRequest) -> JsonResponse:
 
     try:
         if request.method == "PUT":
-            payload = _parse_update_payload(request)
+            payload, selection = _parse_update_payload(request)
             instance = update_model_settings(
                 profile,
                 payload,
                 username=request.user.get_username(),
             )
+            if selection:
+                apply_profile_selection(
+                    profile,
+                    selection,
+                    username=request.user.get_username(),
+                )
             emit_kb_change(
                 request=request,
                 profile=profile,
@@ -264,6 +291,35 @@ def model_params(request: HttpRequest) -> JsonResponse:
         )
 
     return JsonResponse(serialize_model_settings(instance))
+
+
+@require_http_methods(["GET", "PUT"])
+@roles_required(*ADMIN_ROLES, api=True)
+def ocr_model_choice(request: HttpRequest) -> JsonResponse:
+    try:
+        if request.method == "PUT":
+            try:
+                body = json.loads(request.body or b"{}")
+            except json.JSONDecodeError as exc:
+                raise ValueError("Request body must be valid JSON") from exc
+            if not isinstance(body, Mapping):
+                raise ValueError("Request body must be a JSON object")
+            model_id = body.get("model_id")
+            if not isinstance(model_id, str) or not model_id.strip():
+                raise ValueError("model_id is required")
+            from hub.model_catalog import SLOT_OCR, save_model
+
+            save_model(
+                SLOT_OCR,
+                model_id,
+                username=request.user.get_username(),
+            )
+    except (TypeError, ValueError) as exc:
+        return JsonResponse(
+            {"error": "validation_error", "details": {"model_id": [str(exc)]}},
+            status=400,
+        )
+    return JsonResponse(choices_for_ocr())
 
 
 SUFLER_POLICY_ROLES = (

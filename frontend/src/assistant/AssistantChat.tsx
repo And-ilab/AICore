@@ -25,12 +25,6 @@ import {
   type ChatAttachmentPayload,
 } from './api/attachments'
 import {
-  displayModelLabel,
-  fetchLocalLlmModels,
-  selectLocalLlmModel,
-  type LocalLlmModel,
-} from './api/localModels'
-import {
   formatDialogDate,
   type ChatDialogSummary,
 } from './chatPersistence'
@@ -1807,12 +1801,6 @@ export function AssistantChat({
   const [kbSelected, setKbSelected] = useState<Record<string, boolean>>(() =>
     Object.fromEntries((knowledgeBasesProp ?? []).map((kb) => [kb.id, true])),
   )
-  const [modelCatalog, setModelCatalog] = useState<LocalLlmModel[]>([])
-  const [activeModelId, setActiveModelId] = useState('')
-  const [modelStatus, setModelStatus] = useState<
-    'loading' | 'ready' | 'switching' | 'error'
-  >('loading')
-  const [modelError, setModelError] = useState('')
   const [docgenOpen, setDocgenOpen] = useState(false)
   const [rpaOpen, setRpaOpen] = useState(false)
   const [sandboxKind, setSandboxKind] = useState<'sql' | 'code' | null>(null)
@@ -1864,43 +1852,6 @@ export function AssistantChat({
     charCount >= maxChars ? 'danger' : charCount >= maxChars * 0.8 ? 'warn' : 'ok'
 
   useEffect(() => {
-    let cancelled = false
-    setModelStatus('loading')
-    void (async () => {
-      try {
-        await ensureDevSession()
-        const status = await fetchLocalLlmModels()
-        if (cancelled) return
-        setModelCatalog(status.models)
-        setActiveModelId(status.active_model_id ?? status.models[0]?.id ?? '')
-        setModelError(
-          status.manager_reachable === false
-            ? status.last_error || 'Модель недоступна'
-            : status.last_error || '',
-        )
-        setModelStatus(
-          status.manager_reachable === false || !status.models.length
-            ? 'error'
-            : 'ready',
-        )
-      } catch (loadError) {
-        if (cancelled) return
-        setModelCatalog([])
-        setActiveModelId('')
-        setModelError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Не удалось загрузить список моделей',
-        )
-        setModelStatus('error')
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
     if (demoMode) {
       setSkills((current) => {
         const mine = current.filter((item) => item.scope === 'user')
@@ -1922,32 +1873,6 @@ export function AssistantChat({
       cancelled = true
     }
   }, [demoMode])
-
-  const onModelChange = async (modelId: string) => {
-    if (!modelId || modelId === activeModelId || modelStatus === 'switching') {
-      return
-    }
-    const previous = activeModelId
-    setActiveModelId(modelId)
-    setModelStatus('switching')
-    setModelError('')
-    try {
-      await ensureDevSession()
-      const status = await selectLocalLlmModel(modelId)
-      setModelCatalog(status.models)
-      setActiveModelId(status.active_model_id ?? modelId)
-      setModelError('')
-      setModelStatus('ready')
-    } catch (switchError) {
-      setActiveModelId(previous)
-      setModelError(
-        switchError instanceof Error
-          ? switchError.message
-          : 'Не удалось переключить модель',
-      )
-      setModelStatus('error')
-    }
-  }
 
   useEffect(() => {
     if (knowledgeBasesProp) {
@@ -2267,57 +2192,6 @@ export function AssistantChat({
         </div>
       ) : null}
       <div className="asst-toolbar">
-        <label className="asst-model" data-testid="asst-model">
-          <span className="asst-model__label">Модель</span>
-          <select
-            className="asst-model__select"
-            value={activeModelId}
-            disabled={
-              readOnly ||
-              modelStatus === 'loading' ||
-              modelStatus === 'switching' ||
-              modelCatalog.length === 0
-            }
-            onChange={(event) => void onModelChange(event.target.value)}
-            data-testid="asst-model-select"
-            title={modelError || 'Модель для ответов'}
-          >
-            {modelStatus === 'loading' ? (
-              <option value="">Загрузка…</option>
-            ) : modelCatalog.length === 0 ? (
-              <option value="">Нет доступных моделей</option>
-            ) : (
-              <>
-                {/* Keep controlled <select> valid if active id is briefly missing */}
-                {activeModelId &&
-                !modelCatalog.some((model) => model.id === activeModelId) ? (
-                  <option value={activeModelId}>
-                    {displayModelLabel(activeModelId, activeModelId)}
-                  </option>
-                ) : null}
-                {modelCatalog.map((model) => (
-                  <option
-                    key={model.id}
-                    value={model.id}
-                    disabled={model.available === false}
-                  >
-                    {displayModelLabel(model.id, model.label)}
-                  </option>
-                ))}
-              </>
-            )}
-          </select>
-          {modelStatus === 'switching' ? (
-            <span className="asst-model__hint" data-testid="asst-model-switching">
-              Переключение…
-            </span>
-          ) : null}
-        </label>
-        {modelError ? (
-          <span className="asst-model__error" data-testid="asst-model-error" title={modelError}>
-            {modelError}
-          </span>
-        ) : null}
         <div className="asst-kb" data-testid="asst-kb" ref={kbRootRef}>
           <button
             type="button"

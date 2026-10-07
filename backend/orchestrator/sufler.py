@@ -1897,10 +1897,24 @@ def suggest(
     answer_text = ""
     operator_tip = ""
     active_gateway = gateway or ModelGateway.from_registry()
-    # Live call: one short DeepSeek reply. A 720-token answer with a long
-    # «подробнее» block is what made the card sit on "loading".
+    # Live call: one short reply. A long «подробнее» block keeps the card loading.
     brief = _explicit_telephony(channel)
+    answer_model = ""
+    if brief:
+        try:
+            from hub.model_catalog import SLOT_ANSWER, selected_model
+
+            answer_model = selected_model(SLOT_ANSWER)
+        except Exception:
+            answer_model = ""
     try:
+        chat_kwargs: dict[str, Any] = {
+            "temperature": float(settings.temperature),
+            "top_p": float(settings.top_p),
+            "max_tokens": 200 if brief else max(int(settings.max_tokens), 720),
+        }
+        if answer_model:
+            chat_kwargs["runtime_model"] = answer_model
         llm_response = active_gateway.chat(
             PROFILE,
             _build_messages(
@@ -1911,9 +1925,7 @@ def suggest(
                 kb_label=kb_label,
                 brief=brief,
             ),
-            temperature=float(settings.temperature),
-            top_p=float(settings.top_p),
-            max_tokens=200 if brief else max(int(settings.max_tokens), 720),
+            **chat_kwargs,
         )
         llm_text = _extract_llm_text(llm_response)
         char_limit = 320 if brief else max(int(settings.response_chars_max), 400)

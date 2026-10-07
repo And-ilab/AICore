@@ -15,11 +15,14 @@ import { Button, Card, StatusBadge } from '../../components'
 import {
   loadModelParams,
   ModelParamsApiError,
+  publicModelLabel,
   saveModelParams,
+  type ModelOption,
   type ModelParamsData,
   type ModelParamsPayload,
   type ModelParamsPreset,
   type ModelParamsProfile,
+  type ModelSelection,
 } from './api/modelRegistry'
 import type { AdminProfile } from './adminNav'
 
@@ -78,6 +81,34 @@ async function withDevSession<T>(action: () => Promise<T>): Promise<T> {
   }
 }
 
+const SPEECH_FALLBACK: ModelOption[] = [
+  { id: 'vosk-model-small-ru-0.22', label: 'Речь · компактная' },
+  { id: 'vosk-model-ru-0.22', label: 'Речь · стандарт' },
+  { id: 'vosk-model-ru-0.42', label: 'Речь · расширенная' },
+]
+
+function llmOptions(data: ModelParamsData): ModelOption[] {
+  const fromApi = data.model_choices?.llm.options ?? []
+  if (fromApi.length) return fromApi
+  const id = data.read_only.dev_model || data.read_only.llm_model_label || ''
+  if (!id) return []
+  return [{
+    id,
+    label: publicModelLabel(id, data.read_only.llm_model_label || id),
+  }]
+}
+
+function selectionFrom(data: ModelParamsData): ModelSelection {
+  const llmList = llmOptions(data)
+  const llm = data.model_choices?.llm.selected || llmList[0]?.id || ''
+  const speechList = data.model_choices?.speech?.options?.length
+    ? data.model_choices.speech.options
+    : SPEECH_FALLBACK
+  const speech = data.model_choices?.speech?.selected || speechList[0]?.id || ''
+  const answer = data.model_choices?.answer?.selected || llm
+  return { llm, speech, answer }
+}
+
 function editablePayload(data: ModelParamsData): ModelParamsPayload {
   return {
     generation: {
@@ -90,6 +121,7 @@ function editablePayload(data: ModelParamsData): ModelParamsPayload {
         : (data.generation.preset || 'standard'),
     },
     rag: { ...data.rag },
+    selection: selectionFrom(data),
   }
 }
 
@@ -145,6 +177,45 @@ function validate(
     errors.deterministic_answer = 'Не может быть ниже порога включения'
   }
   return errors
+}
+
+function ModelSelect({
+  label,
+  testId,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string
+  testId: string
+  value: string
+  options: ModelOption[]
+  disabled: boolean
+  onChange: (modelId: string) => void
+}) {
+  const known = options.some((option) => option.id === value)
+  return (
+    <label className="model-params__row model-params__row--model">
+      <span>{label}</span>
+      <select
+        aria-label={label}
+        data-testid={testId}
+        value={value}
+        disabled={disabled || options.length === 0}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {!known && value ? (
+          <option value={value}>{publicModelLabel(value, value)}</option>
+        ) : null}
+        {options.map((option) => (
+          <option key={option.id} value={option.id} disabled={option.available === false}>
+            {publicModelLabel(option.id, option.label)}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
 }
 
 function openAdminScreen(path: string) {
@@ -278,7 +349,7 @@ export const ModelParamsScreen = forwardRef<
       return
     }
     setServerErrors({})
-    setForm({
+    setForm((current) => ({
       generation: {
         temperature: defaults.temperature,
         top_p: defaults.top_p,
@@ -292,7 +363,8 @@ export const ModelParamsScreen = forwardRef<
         context_inclusion: defaults.context_inclusion_threshold,
         deterministic_answer: defaults.deterministic_answer_threshold,
       },
-    })
+      selection: current?.selection ?? selectionFrom(data),
+    }))
     setMessage('Подставлены дефолты платформы — нажмите «Сохранить»')
   }
 
@@ -323,6 +395,19 @@ export const ModelParamsScreen = forwardRef<
     setForm((current) => current && ({
       ...current,
       generation: { ...current.generation, [field]: value },
+    }))
+  }
+
+  const setSelection = (field: keyof ModelSelection, value: string) => {
+    setServerErrors({})
+    setForm((current) => current && ({
+      ...current,
+      selection: {
+        llm: current.selection?.llm ?? '',
+        speech: current.selection?.speech ?? '',
+        answer: current.selection?.answer ?? '',
+        [field]: value,
+      },
     }))
   }
 
@@ -536,16 +621,46 @@ export const ModelParamsScreen = forwardRef<
           </label>
         </section>
 
-        <section className="model-params__column model-params__column--readonly" aria-label="Read-only">
-          <h2>Read-only</h2>
+        <section className="model-params__column model-params__column--model" aria-label="Модель">
+          <h2>Модель</h2>
           <Card>
             <span>Контекстное окно</span>
             <strong>{data.read_only.context_window ?? '≥8200'}</strong>
           </Card>
-          <Card>
-            <span>Модель LLM</span>
-            <strong>{data.read_only.llm_model_label ?? data.read_only.dev_model ?? '—'}</strong>
-          </Card>
+          <ModelSelect
+            label="Модель LLM"
+            testId="model-params-llm-select"
+            value={form.selection?.llm ?? ''}
+            options={llmOptions(data)}
+            disabled={!canEdit}
+            onChange={(modelId) => setSelection('llm', modelId)}
+          />
+          {isCc ? (
+            <>
+              <ModelSelect
+                label="Речь"
+                testId="model-params-speech-select"
+                value={form.selection?.speech ?? ''}
+                options={
+                  data.model_choices?.speech?.options?.length
+                    ? data.model_choices.speech.options
+                    : SPEECH_FALLBACK
+                }
+                disabled={!canEdit}
+                onChange={(modelId) => setSelection('speech', modelId)}
+              />
+              <ModelSelect
+                label="Обработка ответа"
+                testId="model-params-answer-select"
+                value={form.selection?.answer ?? ''}
+                options={data.model_choices?.answer?.options?.length
+                  ? data.model_choices.answer.options
+                  : llmOptions(data)}
+                disabled={!canEdit}
+                onChange={(modelId) => setSelection('answer', modelId)}
+              />
+            </>
+          ) : null}
         </section>
       </div>
 

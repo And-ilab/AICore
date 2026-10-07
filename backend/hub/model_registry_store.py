@@ -7,6 +7,7 @@ from django.conf import settings
 from django.db import transaction
 
 from core.model_registry import DEFAULT_REGISTRY_PATH, ModelRegistry
+from hub.model_catalog import choices_for_profile, public_model_label
 from hub.models import ModelRegistrySettings
 
 
@@ -179,6 +180,10 @@ def serialize_model_settings(instance: ModelRegistrySettings) -> dict[str, Any]:
     )
     if slot.dev_model:
         display_model = slot.dev_model
+    choices = choices_for_profile(instance.profile)
+    selected_llm = str((choices.get("llm") or {}).get("selected") or "")
+    if selected_llm:
+        display_model = public_model_label(selected_llm, selected_llm)
     response_max = (
         500
         if instance.profile == ModelRegistrySettings.PROFILE_SUFLER_CC
@@ -219,8 +224,9 @@ def serialize_model_settings(instance: ModelRegistrySettings) -> dict[str, Any]:
             "prod_candidate": slot.prod_candidate,
             "status": slot.status,
             "context_window": "≥8200",
-            "llm_model_label": display_model,
+            "llm_model_label": public_model_label(display_model, display_model),
         },
+        "model_choices": choices,
         "presets": {
             key: {
                 "label": label,

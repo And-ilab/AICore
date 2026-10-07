@@ -26,6 +26,7 @@ export interface ModelParamsData {
     context_window?: string
     llm_model_label?: string
   }
+  model_choices?: ModelChoices
   presets?: Record<
     ModelParamsPreset,
     { label: string; values: Partial<ModelParamsData['generation']> }
@@ -52,9 +53,46 @@ export interface ModelParamsData {
   updated_by: string
 }
 
+export interface ModelOption {
+  id: string
+  label: string
+  available?: boolean
+}
+
+export interface ModelChoiceGroup {
+  selected: string
+  options: ModelOption[]
+}
+
+export interface ModelChoices {
+  llm: ModelChoiceGroup
+  speech?: ModelChoiceGroup
+  answer?: ModelChoiceGroup
+}
+
+export interface ModelSelection {
+  llm: string
+  speech: string
+  answer: string
+}
+
+export interface OcrModelChoice {
+  slot: string
+  selected_model: string
+  models: ModelOption[]
+}
+
+/** Visible name. A vendor cloud model is shown as модель1. */
+export function publicModelLabel(id: string, label: string): string {
+  const blob = `${id} ${label}`.toLowerCase()
+  if (blob.includes('deepseek') || blob.includes('дипсик')) return 'модель1'
+  return label || id
+}
+
 export interface ModelParamsPayload {
   generation: ModelParamsData['generation']
   rag: ModelParamsData['rag']
+  selection?: ModelSelection
 }
 
 interface ApiErrorPayload {
@@ -159,4 +197,41 @@ export async function saveModelParams(
     },
   )
   return parseResponse(response)
+}
+
+export async function loadOcrModelChoice(): Promise<OcrModelChoice> {
+  const response = await authedFetch('/api/admin/model-registry/ocr-model/', {
+    method: 'GET',
+  })
+  if (!response.ok) {
+    throw new ModelParamsApiError(
+      response.status === 401
+        ? 'authentication_required'
+        : response.status === 403
+          ? 'permission_denied'
+          : `Request failed with status ${response.status}`,
+    )
+  }
+  return response.json() as Promise<OcrModelChoice>
+}
+
+export async function saveOcrModelChoice(modelId: string): Promise<OcrModelChoice> {
+  const response = await authedFetch('/api/admin/model-registry/ocr-model/', {
+    method: 'PUT',
+    csrf: true,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model_id: modelId }),
+  })
+  if (!response.ok) {
+    const text = await response.text()
+    let message = `Request failed with status ${response.status}`
+    try {
+      const body = JSON.parse(text) as { details?: { model_id?: string[] } }
+      message = body.details?.model_id?.[0] || message
+    } catch {
+      // keep the status message
+    }
+    throw new ModelParamsApiError(message)
+  }
+  return response.json() as Promise<OcrModelChoice>
 }
