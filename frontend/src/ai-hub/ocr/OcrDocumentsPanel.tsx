@@ -1385,6 +1385,7 @@ export function OcrDocumentsPanel({
 
   return (
     <div className={`ocr-docs${onClose ? ' ocr-docs--overlay' : ''}`} data-testid="ocr-documents-panel">
+      <OcrModelPicker />
       <div className="hub-document-tabs" role="tablist" aria-label="Документы">
         {([
           ['queue', 'Очередь'],
@@ -1403,7 +1404,6 @@ export function OcrDocumentsPanel({
             {label}
           </button>
         ))}
-        <OcrModelPicker />
         {onClose ? (
           <button
             type="button"

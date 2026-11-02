@@ -10,7 +10,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     AI_INFERENCE_PROFILE=test
 
 WORKDIR /app
-RUN python -m pip install --no-cache-dir "websockets==12.0"
+#RUN python -m pip install --no-cache-dir "websockets==12.0"
+RUN python -m pip install --no-cache-dir \ 
+    --trusted-host pypi.org \ 
+    --trusted-host files.pythonhosted.org \ 
+    "websockets==12.0"
 COPY runtime.py /app/runtime.py
 
 EXPOSE 8764 8765
