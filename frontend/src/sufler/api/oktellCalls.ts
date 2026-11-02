@@ -51,6 +51,15 @@ export async function ensureOktellListen(kbSlugs?: string[]): Promise<OktellLive
   return body.call ?? null
 }
 
+export async function fetchOktellListenMode(): Promise<string> {
+  const response = await fetch('/api/v1/telephony/oktell/calls', {
+    credentials: 'include',
+  })
+  if (!response.ok) return ''
+  const body = (await response.json()) as { listen?: { listen_mode?: string } }
+  return String(body.listen?.listen_mode || '')
+}
+
 export async function fetchOktellCalls(): Promise<OktellLiveCall[]> {
   const response = await fetch('/api/v1/telephony/oktell/calls', {
     credentials: 'include',

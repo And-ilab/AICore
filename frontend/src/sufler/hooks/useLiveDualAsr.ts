@@ -178,14 +178,17 @@ function isInsecureRemoteOrigin(): boolean {
 
 export function useLiveDualAsr(
   onUtterance: (speaker: DualSpeaker, text: string, isFinal: boolean) => void,
+  options?: { micSpeaker?: DualSpeaker; systemSpeaker?: DualSpeaker },
 ) {
+  const initialMic = options?.micSpeaker ?? 'client'
+  const initialSystem = options?.systemSpeaker ?? (initialMic === 'client' ? 'operator' : 'client')
   const [state, setState] = useState<LiveDualAsrState>({
     recording: false,
     paused: false,
     micLevel: 0,
     systemLevel: 0,
-    micSpeaker: 'client',
-    systemSpeaker: 'operator',
+    micSpeaker: initialMic,
+    systemSpeaker: initialSystem,
     status: '',
     caption: '',
     systemCaption: '',
@@ -194,8 +197,8 @@ export function useLiveDualAsr(
   })
   const recordingRef = useRef(false)
   const pausedRef = useRef(false)
-  const micSpeakerRef = useRef<DualSpeaker>('client')
-  const systemSpeakerRef = useRef<DualSpeaker>('operator')
+  const micSpeakerRef = useRef<DualSpeaker>(initialMic)
+  const systemSpeakerRef = useRef<DualSpeaker>(initialSystem)
   const onUtteranceRef = useRef(onUtterance)
   onUtteranceRef.current = onUtterance
   const cleanupRef = useRef<(() => void) | null>(null)
@@ -485,15 +488,16 @@ export function useLiveDualAsr(
       (level) => setState((current) => ({ ...current, systemLevel: level })),
       (wav) => {
         if (pausedRef.current) return
-        const speaker: DualSpeaker = 'operator'
-        setPartial({ status: 'Распознаю реплику оператора…', error: '' })
+        const speaker = systemSpeakerRef.current
+        const speakerName = speaker === 'client' ? 'Клиент' : 'Оператор'
+        setPartial({ status: `Распознаю реплику: ${speakerName.toLowerCase()}…`, error: '' })
         void transcribeUtterance(wav, speaker)
           .then((text) => {
             if (!text) return
             onUtteranceRef.current(speaker, text, true)
             setPartial({
               systemCaption: text,
-              status: `Оператор: ${text}`,
+              status: `${speakerName}: ${text}`,
               error: '',
             })
           })
@@ -501,7 +505,7 @@ export function useLiveDualAsr(
             const message =
               error instanceof Error ? error.message : 'Системный звук не распознан'
             if (message.includes('could not recognize')) {
-              setPartial({ status: 'Оператор говорил, но фразу не разобрали. Повторите громче.' })
+              setPartial({ status: `${speakerName} говорил, но фразу не разобрали. Повторите громче.` })
               return
             }
             setPartial({ error: message })
@@ -537,7 +541,7 @@ export function useLiveDualAsr(
         systemLevel: 0,
         systemCaption: '',
         status: recordingRef.current
-          ? 'Системный звук отключён. Микрофон продолжает писать клиента.'
+          ? 'Звук наушников отключён. Микрофон продолжает писать.'
           : 'Запись остановлена',
       })
     }
@@ -548,7 +552,10 @@ export function useLiveDualAsr(
       systemCapture: true,
       error: '',
       systemCaption: '',
-      status: 'Два канала сразу: микрофон — клиент, системный звук — оператор. Реплики оператора появятся в ленте.',
+      status:
+        systemSpeakerRef.current === 'client'
+          ? 'Микрофон — оператор, звук наушников — клиент.'
+          : 'Микрофон — клиент, системный звук — оператор.',
     })
     systemCleanupRef.current = () => {
       systemStream.getTracks().forEach((track) => {

@@ -151,7 +151,8 @@ class CallHub:
 
     def _legs_alive(self, call: LiveCall) -> bool:
         return any(
-            leg.status in {"dialing", "listening", "heard", "mock"} for leg in call.legs
+            leg.status in {"dialing", "listening", "heard", "mock", "browser"}
+            for leg in call.legs
         )
 
     def attach_vendor_pickup(self, idchain: str, pickup: PickupEvent) -> LiveCall | None:
@@ -225,6 +226,24 @@ class CallHub:
         for idchain in others:
             self.stop(idchain)
 
+        mode = listen_mode()
+        if mode == "system":
+            previous_question, previous_asked_at = _previous_for_caller(pickup.caller_id)
+            call = LiveCall(
+                pickup=pickup,
+                listen_mode="system",
+                legs=[
+                    ListenLeg("client", "system", "pc"),
+                    ListenLeg("operator", "microphone", "pc"),
+                ],
+                previous_question=previous_question,
+                previous_asked_at=previous_asked_at,
+            )
+            with self._lock:
+                self._calls[pickup.idchain] = call
+            self._spawn_call(call, None, None)
+            return call, True
+
         client_account, operator_account = self.allocate_accounts(2)
         codes = listen_codes(pickup.called_id)
         previous_question, previous_asked_at = _previous_for_caller(pickup.caller_id)
@@ -285,7 +304,12 @@ class CallHub:
     ) -> None:
         call.state = "listening"
         for leg in call.legs:
-            leg.status = "dialing" if call.listen_mode == "sip" else "mock"
+            if call.listen_mode == "sip":
+                leg.status = "dialing"
+            elif call.listen_mode == "system":
+                leg.status = "browser"
+            else:
+                leg.status = "mock"
         publish_to_call(
             call.idchain,
             {
@@ -296,6 +320,11 @@ class CallHub:
                 "called_id": call.pickup.called_id,
             },
         )
+        if call.listen_mode == "system":
+            call.stop_event.wait(timeout=3600)
+            if call.state != "stopped":
+                call.state = "stopped"
+            return
         if call.listen_mode == "mock":
             self._run_mock_utterances(call)
             return

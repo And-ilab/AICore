@@ -34,6 +34,10 @@ export interface SuflerPhoneAppProps {
   /** Caller phone from telephony. A placeholder is not replaced with a demo number. */
   clientPhone?: string
   callFacts?: CallFacts
+  /** Operator PC: microphone is the operator, headphone audio is the client. */
+  deskAudio?: boolean
+  /** Oktell has a real call open. Desk audio is written to the tape only then. */
+  callActive?: boolean
 }
 
 export interface CallFacts {
@@ -273,6 +277,8 @@ export function SuflerPhoneApp({
   embedded = false,
   clientPhone = '',
   callFacts,
+  deskAudio = false,
+  callActive = false,
 }: SuflerPhoneAppProps) {
   const resolvedCallId = useMemo(
     () =>
@@ -322,7 +328,11 @@ export function SuflerPhoneApp({
   const [feedbackByHint, setFeedbackByHint] = useState<Record<string, HintFeedbackChoice>>({})
   const [resumeOpen, setResumeOpen] = useState(false)
 
+  const callActiveRef = useRef(callActive)
+  callActiveRef.current = callActive
+
   const handleUtterance = (speaker: DualSpeaker, text: string, isFinal: boolean) => {
+    if (deskAudio && !callActiveRef.current) return
     if (!liveTurns.current[speaker]) {
       liveTurns.current[speaker] = `${speaker}-${Date.now()}`
     }
@@ -336,11 +346,20 @@ export function SuflerPhoneApp({
     if (isFinal) liveTurns.current[speaker] = ''
   }
 
-  const live = useLiveDualAsr(handleUtterance)
+  const live = useLiveDualAsr(
+    handleUtterance,
+    deskAudio ? { micSpeaker: 'operator', systemSpeaker: 'client' } : undefined,
+  )
 
   useEffect(() => {
     setRecognitionPaused(live.paused)
   }, [live.paused, setRecognitionPaused])
+
+  useEffect(() => {
+    if (!deskAudio) return
+    resetConversation()
+    liveTurns.current = { client: '', operator: '' }
+  }, [deskAudio, resetConversation, resolvedCallId, clientPhone])
 
   const submitTypedLine = () => {
     const text = typedLine.trim()
@@ -358,7 +377,14 @@ export function SuflerPhoneApp({
 
   const startLive = () => {
     clearImitation()
-    void live.start()
+    if (!deskAudio) {
+      void live.start()
+      return
+    }
+    void (async () => {
+      await live.start()
+      await live.enableSystemAudio()
+    })()
   }
 
   const stopLive = () => {
@@ -704,14 +730,20 @@ export function SuflerPhoneApp({
           {!blocks.length && (
             <Card className="sufler-phone__empty">
               {live.caption
-                ? `Слышу клиента: ${live.caption}`
+                ? `${live.micSpeaker === 'operator' ? 'Оператор' : 'Клиент'}: ${live.caption}`
                 : live.systemCaption
-                  ? `Оператор: ${live.systemCaption}`
+                  ? `${live.systemSpeaker === 'client' ? 'Клиент' : 'Оператор'}: ${live.systemCaption}`
                 : live.recording
-                  ? 'Говорите в микрофон (клиент). Системный звук оператора появится в ленте после кнопки «Системный звук».'
-                  : demoMode
-                    ? 'Нажмите «Начать имитацию»: микрофон — клиент, системный звук — оператор. Реплики оператора пишутся в ленту.'
-                    : 'Слушаем линию. Когда заговорят, текст появится здесь.'}
+                  ? deskAudio
+                    ? 'Микрофон — оператор, звук наушников — клиент.'
+                    : 'Говорите в микрофон (клиент). Системный звук оператора появится в ленте после кнопки «Системный звук».'
+                  : deskAudio
+                    ? callActive
+                      ? 'Нажмите «Слушать звонок»: микрофон — оператор, звук наушников — клиент.'
+                      : 'Ждём звонок из Oktell. Текст появится, когда разговор начнётся.'
+                    : demoMode
+                      ? 'Нажмите «Начать имитацию»: микрофон — клиент, системный звук — оператор. Реплики оператора пишутся в ленту.'
+                      : 'Слушаем линию. Когда заговорят, текст появится здесь.'}
             </Card>
           )}
         </section>
@@ -741,19 +773,29 @@ export function SuflerPhoneApp({
         <span className="sufler-phone__footer-status">
           {live.recording
             ? [
-                live.caption ? `Клиент: ${live.caption}` : '',
-                live.systemCaption ? `Оператор: ${live.systemCaption}` : '',
+                live.caption
+                  ? `${live.micSpeaker === 'operator' ? 'Оператор' : 'Клиент'}: ${live.caption}`
+                  : '',
+                live.systemCaption
+                  ? `${live.systemSpeaker === 'client' ? 'Клиент' : 'Оператор'}: ${live.systemCaption}`
+                  : '',
                 !live.caption && !live.systemCaption
-                  ? live.status || 'Имитация разговора'
+                  ? deskAudio && !callActive
+                    ? 'Звонок ещё не начался'
+                    : live.status || (deskAudio ? 'Слушаем звонок' : 'Имитация разговора')
                   : '',
               ]
                 .filter(Boolean)
                 .join(' · ')
             : linkDown
               ? 'Нет связи с распознаванием'
-              : demoMode
-                ? 'Готов к имитации'
-                : 'Слушаем линию'}
+              : deskAudio
+                ? callActive
+                  ? 'Звонок идёт'
+                  : 'Ждём звонок из Oktell'
+                : demoMode
+                  ? 'Готов к имитации'
+                  : 'Слушаем линию'}
           {!live.recording && latencyMs != null
             ? ` · p95 подсказки ${Math.round(latencyMs)} мс`
             : ''}
@@ -785,32 +827,42 @@ export function SuflerPhoneApp({
                   style={{ transform: `scaleY(${Math.min(1, live.systemLevel * 8)})` }}
                 />
               </span>
-              <Button
-                variant="ghost"
-                onClick={live.swapSpeakers}
-                title={
-                  live.micSpeaker === 'client'
-                    ? 'Микрофон пишет клиента'
-                    : 'Микрофон пишет оператора'
-                }
-              >
-                {live.micSpeaker === 'client' ? 'Клиент' : 'Оператор'}
-              </Button>
+              {deskAudio ? null : (
+                <Button
+                  variant="ghost"
+                  onClick={live.swapSpeakers}
+                  title={
+                    live.micSpeaker === 'client'
+                      ? 'Микрофон пишет клиента'
+                      : 'Микрофон пишет оператора'
+                  }
+                >
+                  {live.micSpeaker === 'client' ? 'Клиент' : 'Оператор'}
+                </Button>
+              )}
               {live.systemCapture ? (
                 <Button
                   variant="ghost"
                   disabled
-                  title="Системный звук пишется как оператор"
+                  title={
+                    live.systemSpeaker === 'client'
+                      ? 'Звук наушников пишется как клиент'
+                      : 'Системный звук пишется как оператор'
+                  }
                 >
-                  Оператор · sys
+                  {live.systemSpeaker === 'client' ? 'Клиент · наушники' : 'Оператор · sys'}
                 </Button>
               ) : (
                 <Button
                   variant="ghost"
                   onClick={() => void live.enableSystemAudio()}
-                  title="Захват системного звука как оператора. В Chrome отметьте «Также системный звук»."
+                  title={
+                    deskAudio
+                      ? 'Звук наушников — клиент. В Chrome отметьте «Также системный звук».'
+                      : 'Захват системного звука как оператора. В Chrome отметьте «Также системный звук».'
+                  }
                 >
-                  Системный звук
+                  {deskAudio ? 'Звук клиента' : 'Системный звук'}
                 </Button>
               )}
               <Button
@@ -823,9 +875,9 @@ export function SuflerPhoneApp({
                 Стоп
               </Button>
             </>
-          ) : demoMode ? (
+          ) : demoMode || deskAudio ? (
             <Button variant="primary" onClick={startLive}>
-              Начать имитацию
+              {deskAudio ? 'Слушать звонок' : 'Начать имитацию'}
             </Button>
           ) : null}
           {demoMode && !live.recording && (

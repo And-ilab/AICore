@@ -367,8 +367,9 @@ OKTELL_TEST_LINE_LABEL = os.getenv(
 )
 OKTELL_TEST_QUEUE = os.getenv("OKTELL_TEST_QUEUE", "")
 OKTELL_TEST_MARKING = os.getenv("OKTELL_TEST_MARKING", "TEST_OKTELL_T45")
-# Vendor pickup POST + SIP barge 02*/03* (Подслушивание.pdf).
-OKTELL_LISTEN_MODE = os.getenv("OKTELL_LISTEN_MODE", "mock").strip().lower() or "mock"
+# system = mic is the operator and headphone audio is the client.
+# sip = Oktell barge 02*/03*. mock = canned text.
+OKTELL_LISTEN_MODE = os.getenv("OKTELL_LISTEN_MODE", "system").strip().lower() or "system"
 OKTELL_WEBHOOK_SECRET = os.getenv("OKTELL_WEBHOOK_SECRET", "")
 OKTELL_SIP_SERVER = os.getenv("OKTELL_SIP_SERVER", "10.1.1.31")
 OKTELL_SIP_DOMAIN = os.getenv("OKTELL_SIP_DOMAIN", "dev-qms.onedemoserver.online")

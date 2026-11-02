@@ -84,8 +84,13 @@ def account_pool() -> list[SipAccount]:
 
 
 def listen_mode() -> str:
-    mode = _truthy("OKTELL_LISTEN_MODE", "mock").lower()
-    return "sip" if mode == "sip" else "mock"
+    """sip = Oktell 02*/03*, mock = canned text, system = operator PC audio."""
+    mode = _truthy("OKTELL_LISTEN_MODE", "system").lower()
+    if mode == "sip":
+        return "sip"
+    if mode == "mock":
+        return "mock"
+    return "system"
 
 
 def mock_client_text() -> str:

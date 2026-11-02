@@ -175,6 +175,29 @@ class OktellWebhookTest(TestCase):
     def setUp(self):
         hub.reset()
 
+    @override_settings(OKTELL_LISTEN_MODE="system", OKTELL_WEBHOOK_SECRET="")
+    def test_system_mode_keeps_the_call_card_without_sip(self):
+        client = Client()
+        with patch("integrations.oktell.call_hub.place_barge_leg") as barge, patch(
+            "integrations.oktell.call_hub.publish_to_call"
+        ), patch("integrations.oktell.call_hub.publish_transcript") as transcript:
+            response = client.post(
+                "/api/v1/telephony/oktell/call-started",
+                data=json.dumps(INCOMING),
+                content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 201)
+        body = response.json()["call"]
+        self.assertEqual(body["listen_mode"], "system")
+        self.assertEqual(body["CallerID"], INCOMING["CallerID"])
+        self.assertEqual(
+            [(leg["speaker"], leg["dial"]) for leg in body["legs"]],
+            [("client", "system"), ("operator", "microphone")],
+        )
+        barge.assert_not_called()
+        transcript.assert_not_called()
+
+
     def tearDown(self):
         hub.reset()
 

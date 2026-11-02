@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ensureOktellListen,
   fetchOktellCall,
+  fetchOktellListenMode,
   type OktellCallEvent,
   type OktellLiveCall,
 } from './api/oktellCalls'
@@ -84,12 +85,28 @@ export function LiveSuflerPhoneApp({
 }) {
   const polled = useOktellActiveCall('live')
   const [started, setStarted] = useState<OktellLiveCall | null>(null)
+  const [listenMode, setListenMode] = useState('system')
   const live = polled || started
   const [detail, setDetail] = useState<OktellLiveCall | null>(null)
   const seedLines = useMemo(
     () => linesFromEvents(detail?.events || live?.events),
     [detail?.events, live?.events],
   )
+
+  useEffect(() => {
+    let cancelled = false
+    const loadMode = () => {
+      void fetchOktellListenMode().then((mode) => {
+        if (!cancelled && mode) setListenMode(mode)
+      })
+    }
+    loadMode()
+    const modeTimer = window.setInterval(loadMode, 5000)
+    return () => {
+      cancelled = true
+      window.clearInterval(modeTimer)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -123,11 +140,18 @@ export function LiveSuflerPhoneApp({
   }, [])
 
   const source = detail || live
+  const mode = source?.listen_mode || listenMode
+  const deskAudio = mode === 'system'
+  const callerId = source?.CallerID || ''
+  const callActive =
+    (source?.state === 'listening' || source?.state === 'started')
+    && Boolean(callerId)
+    && callerId !== 'sufler'
   return (
     <SuflerPhoneApp
       demoMode={false}
       callId="live"
-      clientPhone={source?.CallerID || ''}
+      clientPhone={callerId}
       callFacts={{
         callerId: source?.CallerID || '',
         calledId: source?.CalledID || '',
@@ -137,9 +161,11 @@ export function LiveSuflerPhoneApp({
         previousQuestion: source?.previous_question || '',
         previousAskedAt: source?.previous_asked_at || '',
       }}
-      seedLines={seedLines}
+      seedLines={deskAudio ? [] : seedLines}
       operatorName={operatorName}
       embedded={embedded}
+      deskAudio={deskAudio}
+      callActive={callActive}
     />
   )
 }

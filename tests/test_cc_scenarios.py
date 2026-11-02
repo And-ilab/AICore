@@ -66,7 +66,7 @@ class DialogScenarioCatalogTest(TestCase):
             upsert_from_catalog(payload, username="test")
         self.assertEqual(
             DialogScenario.objects.filter(status=DialogScenario.STATUS_PRODUCTION).count(),
-            10,
+            21,
         )
         item = DialogScenario.objects.get(code="CC-SCR-005")
         nodes = item.current_version.graph["nodes"]
@@ -79,7 +79,7 @@ class DialogScenarioCatalogTest(TestCase):
             for node in scenario["graph"]["nodes"]
             for edge in node.get("edges", [])
         ]
-        self.assertEqual(len(edges), 129)
+        self.assertEqual(len(edges), 245)
         for edge in edges:
             with self.subTest(label=edge["label"]):
                 reply = edge.get("reply", "").strip()

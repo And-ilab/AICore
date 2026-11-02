@@ -1547,7 +1547,13 @@ DRAFT_SCENARIOS: list[dict[str, Any]] = [
     ),
 ]
 
-ALL_SCENARIOS: list[dict[str, Any]] = [*REFERENCE_SCENARIOS, *DRAFT_SCENARIOS]
+from hub.flowchart_scenarios import FLOW_SCENARIOS
+
+ALL_SCENARIOS: list[dict[str, Any]] = [
+    *REFERENCE_SCENARIOS,
+    *DRAFT_SCENARIOS,
+    *FLOW_SCENARIOS,
+]
 
 NO_HINT_EXAMPLES: list[tuple[str, str]] = [
     ("no_hint.greeting", "алло"),
