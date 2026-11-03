@@ -26,8 +26,8 @@ COPY package.json package-lock.json ./
 # Сначала чистим кэш, затем ставим пакеты без лишних проверок
 #ENV NODE_OPTIONS="--max-old-space-size=4096"
 #RUN npm cache clean --force && npm install --no-audit --no-fund
-ENV http_proxy=http://bb.asb
-ENV https_proxy=http://bb.asb
+ENV http_proxy=http://webproxy.bb.asb:3127
+ENV https_proxy=http://webproxy.bb.asb:3127
 RUN npm config set strict-ssl false
 
 # 3. Запускаем чистую установку
