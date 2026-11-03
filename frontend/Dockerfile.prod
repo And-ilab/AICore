@@ -22,15 +22,16 @@ ENV VITE_ALLOW_DEV_LOGIN=$VITE_ALLOW_DEV_LOGIN \
     VITE_SUFLER_DEMO=$VITE_SUFLER_DEMO
 
 COPY package.json package-lock.json ./
-#RUN npm ci
-# Сначала чистим кэш, затем ставим пакеты без лишних проверок
-#ENV NODE_OPTIONS="--max-old-space-size=4096"
-#RUN npm cache clean --force && npm install --no-audit --no-fund
-ENV http_proxy=http://webproxy.bb.asb:3127
-ENV https_proxy=http://webproxy.bb.asb:3127
-RUN npm config set strict-ssl false
-
-# 3. Запускаем чистую установку
+# Proxy is optional. Empty on this deploy: npm talks to registry.npmjs.org
+# directly, the same way the backend image reaches apt. The bank compose
+# passes http://webproxy.bb.asb:3127 as build-args.
+ARG http_proxy
+ARG https_proxy
+ARG no_proxy
+ENV http_proxy=$http_proxy \
+    https_proxy=$https_proxy \
+    no_proxy=$no_proxy
+RUN if [ -n "$http_proxy$https_proxy" ]; then npm config set strict-ssl false; fi
 RUN npm ping && npm ci --loglevel verbose
 #RUN npm ci --no-audit --no-fund
 COPY . .

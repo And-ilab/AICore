@@ -347,7 +347,10 @@ services:
     build:
       context: ../../frontend
       dockerfile: Dockerfile.prod
-      #args:
+      args:
+        http_proxy: http://webproxy.bb.asb:3127
+        https_proxy: http://webproxy.bb.asb:3127
+        no_proxy: localhost,127.0.0.1,.bb.asb
         #VITE_ALLOW_DEV_LOGIN: ${VITE_ALLOW_DEV_LOGIN:-1}
         #VITE_DEV_AUTH_USER: ${VITE_DEV_AUTH_USER:-dev-role-01}
         #VITE_DEV_AUTH_PASSWORD: ${AUTH_MOCK_LDAP_DEFAULT_PASSWORD:-replace-with-dfault-password}
