@@ -10,6 +10,8 @@ venv/
 **/.env.local
 backend/services/asr/model/
 backend/var/
+backend/logs/
+*.md
 
 # TEST Postgres dumps (backup stub)
 infra/test/backups/

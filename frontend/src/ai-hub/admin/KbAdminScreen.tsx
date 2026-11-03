@@ -188,14 +188,37 @@ function fromAssistantKb(kb: AssistantKb): UnifiedKb {
   }
 }
 
+function isApiError(
+  error: unknown,
+): error is KnowledgeBaseApiError | AssistantAdminApiError {
+  return error instanceof KnowledgeBaseApiError || error instanceof AssistantAdminApiError
+}
+
+/** 401 as its own status, so `HTTP 400` / `http_400` are not a lost session. */
+function isExpiredSessionCode(code: string): boolean {
+  return code === 'authentication_required' || /(?:^|[^0-9])401(?:[^0-9]|$)/.test(code)
+}
+
+function isMissingKbError(error: unknown): boolean {
+  const code = error instanceof Error ? error.message : ''
+  return code === 'not_found' || code === 'KB not found'
+}
+
+function apiErrorText(error: KnowledgeBaseApiError | AssistantAdminApiError): string {
+  const details = error.details ?? {}
+  const parts = [
+    ...(details.request ?? []),
+    ...Object.entries(details)
+      .filter(([key]) => key !== 'request')
+      .flatMap(([, messages]) => messages ?? []),
+  ].map((item) => item.trim()).filter(Boolean)
+  return parts.join(' ')
+}
+
 function formatKbError(error: unknown, fallback: string): string {
   const code = error instanceof Error ? error.message : ''
-  if (
-    error instanceof KnowledgeBaseApiError
-    || error instanceof AssistantAdminApiError
-    || isAuthErrorMessage(code)
-  ) {
-    if (code === 'authentication_required' || /401/.test(code)) {
+  if (isApiError(error) || isAuthErrorMessage(code)) {
+    if (isExpiredSessionCode(code)) {
       return 'Сессия Django истекла. Нажмите «Повторить» — вход выполнится автоматически.'
     }
     if (code === 'csrf_failed' || /csrf/i.test(code)) {
@@ -204,8 +227,11 @@ function formatKbError(error: unknown, fallback: string): string {
     if (code === 'permission_denied') {
       return 'Недостаточно прав для этой операции.'
     }
-    if (error instanceof KnowledgeBaseApiError || error instanceof AssistantAdminApiError) {
-      return code
+    if (isApiError(error)) {
+      const detailText = apiErrorText(error)
+      if (detailText) return detailText
+      if (isMissingKbError(error)) return 'База знаний не найдена.'
+      return code || fallback
     }
   }
   if (error instanceof Error && error.message) return error.message
@@ -307,30 +333,67 @@ export function KbAdminScreen({ canEdit = true, demoKb }: KbAdminScreenProps) {
       ...ccItems.map(fromCcKb),
     ].sort((a, b) => a.name.localeCompare(b.name, 'ru'))
     setItems(next)
-    const targetKey = preferKey ?? selectedKeyRef.current ?? next[0]?.key ?? null
-    setSelectedKey(targetKey)
-    if (targetKey == null) {
-      setSelected(null)
-      return null
+    // undefined keeps the current row. null means "do not keep it" — first remaining, or empty.
+    const targetKey = preferKey === undefined
+      ? (next.some((item) => item.key === selectedKeyRef.current)
+        ? selectedKeyRef.current
+        : (next[0]?.key ?? null))
+      : (preferKey && next.some((item) => item.key === preferKey)
+        ? preferKey
+        : (next[0]?.key ?? null))
+
+    const showDetail = (detail: UnifiedKb) => {
+      setSelectedKey(detail.key)
+      setSelected(detail)
+      setItems((current) =>
+        current.map((item) => (item.key === detail.key
+          ? {
+              ...item,
+              status: detail.status,
+              status_message: detail.status_message,
+              document_count: detail.document_count,
+              index_percent: detail.index_percent,
+              source_label: detail.source_label,
+              webhook_status: detail.webhook_status,
+              webhook_label: detail.webhook_label,
+              latest_job: detail.latest_job,
+            }
+          : item)),
+      )
     }
-    const detail = await loadDetail(targetKey)
-    setSelected(detail)
-    setItems((current) =>
-      current.map((item) => (item.key === detail.key
-        ? {
-            ...item,
-            status: detail.status,
-            status_message: detail.status_message,
-            document_count: detail.document_count,
-            index_percent: detail.index_percent,
-            source_label: detail.source_label,
-            webhook_status: detail.webhook_status,
-            webhook_label: detail.webhook_label,
-            latest_job: detail.latest_job,
-          }
-        : item)),
-    )
-    return detail
+
+    const openKey = async (key: UnifiedKey | null): Promise<UnifiedKb | null> => {
+      if (key == null) {
+        setSelectedKey(null)
+        setSelected(null)
+        return null
+      }
+      try {
+        const detail = await loadDetail(key)
+        showDetail(detail)
+        return detail
+      } catch (error) {
+        if (!isMissingKbError(error)) throw error
+        const fallback = next.find((item) => item.key !== key) ?? null
+        if (!fallback) {
+          setSelectedKey(null)
+          setSelected(null)
+          return null
+        }
+        try {
+          const detail = await loadDetail(fallback.key)
+          showDetail(detail)
+          return detail
+        } catch (fallbackError) {
+          if (!isMissingKbError(fallbackError)) throw fallbackError
+          setSelectedKey(fallback.key)
+          setSelected(fallback)
+          return fallback
+        }
+      }
+    }
+
+    return openKey(targetKey)
   }, [loadDetail])
 
   const loadInitial = useCallback(async (forceRelogin = false) => {
@@ -575,15 +638,51 @@ export function KbAdminScreen({ canEdit = true, demoKb }: KbAdminScreenProps) {
   const onDeleteKb = async () => {
     if (!canEdit || !selected || selected.readonly || busy) return
     const current = selected
-    await runKbAction(async () => {
-      if (current.kind === 'assistant') {
-        await deleteAssistantKb(current.id)
-      } else {
-        await deleteKnowledgeBase(current.id)
+    const nextKey = items.find((item) => item.key !== current.key)?.key ?? null
+    setBusy(true)
+    setError('')
+    setNotice('')
+    const removeOnce = async () => {
+      try {
+        if (current.kind === 'assistant') {
+          await deleteAssistantKb(current.id)
+        } else {
+          await deleteKnowledgeBase(current.id)
+        }
+      } catch (error) {
+        // A repeated DELETE after the row is already gone is still a success.
+        if (!isMissingKbError(error)) throw error
       }
-      await refreshList()
+    }
+    const refreshAfterDelete = async () => {
+      const remaining = items.filter((item) => item.key !== current.key)
+      const fallback = remaining.find((item) => item.key === nextKey) ?? remaining[0] ?? null
+      selectedKeyRef.current = null
+      setItems(remaining)
+      setSelectedKey(fallback?.key ?? null)
+      setSelected(fallback)
+      await refreshList(fallback?.key ?? null)
       setNotice('База знаний удалена.')
-    }, 'Не удалось удалить базу знаний')
+    }
+    try {
+      await removeOnce()
+      try {
+        await refreshAfterDelete()
+      } catch (requestError) {
+        const raw = requestError instanceof Error ? requestError.message : ''
+        const message = formatKbError(requestError, 'Не удалось удалить базу знаний')
+        if (!isAuthErrorMessage(message) && !isAuthErrorMessage(raw)) throw requestError
+        // The row is already deleted. Re-auth may only reload the list.
+        resetDevSessionCache()
+        const ok = await ensureDevSession()
+        if (!ok) throw requestError
+        await refreshAfterDelete()
+      }
+    } catch (requestError) {
+      setError(formatKbError(requestError, 'Не удалось удалить базу знаний'))
+    } finally {
+      setBusy(false)
+    }
   }
 
   const onDeleteDocument = async (documentId: number) => {

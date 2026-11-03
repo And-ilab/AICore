@@ -9,6 +9,7 @@ Profile mapping:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 import uuid
@@ -23,6 +24,8 @@ from core.model_registry import (
     ModelRegistry,
     ModelSlot,
 )
+
+logger = logging.getLogger(__name__)
 
 
 PROFILE_TO_SLOT = {
@@ -228,6 +231,75 @@ def _profile_from_slot(
         gateway_mode=gateway_mode,
         api_compatibility=api_compatibility,
         kpi=slot.kpi,
+    )
+
+
+def _json_text(payload: Any) -> str:
+    return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+def _sse_content(chunk: str) -> str:
+    """Assistant text from one SSE chunk. Empty when the chunk is not content."""
+    raw = chunk.strip()
+    if raw.startswith("data:"):
+        raw = raw[5:].strip()
+    if not raw or raw == "[DONE]":
+        return ""
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(payload, Mapping):
+        return ""
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return ""
+    choice = choices[0]
+    if not isinstance(choice, Mapping):
+        return ""
+    delta = choice.get("delta")
+    if not isinstance(delta, Mapping):
+        delta = choice.get("message")
+    if not isinstance(delta, Mapping):
+        return ""
+    content = delta.get("content")
+    return content if isinstance(content, str) else ""
+
+
+def _logged_stream(
+    chunks: Iterable[str],
+    *,
+    profile: str,
+    model: Any,
+    status: Any,
+) -> Iterator[str]:
+    parts: list[str] = []
+    try:
+        for chunk in chunks:
+            parts.append(_sse_content(chunk))
+            yield chunk
+    finally:
+        _log_model_response(
+            profile=profile,
+            model=model,
+            status=status,
+            body="".join(parts),
+        )
+
+
+def _log_model_response(
+    *,
+    profile: str,
+    model: Any,
+    status: Any,
+    body: Any,
+) -> None:
+    logger.info(
+        "model_response profile=%s model=%s status=%s body=%s",
+        profile,
+        model,
+        status,
+        body if isinstance(body, str) else _json_text(body),
     )
 
 
@@ -519,11 +591,18 @@ class ModelGateway:
             parameters=parameters,
         )
         if self._mode_for(configured, str(payload.get("model") or "")) == "stub":
-            return self._stub_chat(
+            result = self._stub_chat(
                 configured,
                 payload["messages"],
                 payload,
             )
+            _log_model_response(
+                profile=profile,
+                model=result.get("model"),
+                status="stub",
+                body=result,
+            )
+            return result
 
         endpoint = self._openai_endpoint(
             configured,
@@ -534,6 +613,7 @@ class ModelGateway:
             timeout = min(timeout, 45.0)
         elif configured.profile == DOCS_OCR_PROFILE:
             timeout = min(max(timeout, 20.0), 60.0)
+        response: requests.Response | None = None
         try:
             response = requests.post(
                 endpoint,
@@ -544,6 +624,18 @@ class ModelGateway:
             response.raise_for_status()
             result = response.json()
         except (requests.RequestException, ValueError) as exc:
+            status = getattr(response, "status_code", None)
+            if status is None:
+                status = getattr(
+                    getattr(exc, "response", None),
+                    "status_code",
+                    None,
+                )
+            logger.exception(
+                "model_response_failed profile=%s status=%s",
+                profile,
+                status,
+            )
             raise ModelGatewayRequestError(
                 f"OpenAI-compatible chat request failed for {profile}"
             ) from exc
@@ -551,7 +643,14 @@ class ModelGateway:
             raise ModelGatewayRequestError(
                 "OpenAI-compatible response must be a JSON object"
             )
-        return dict(result)
+        body = dict(result)
+        _log_model_response(
+            profile=profile,
+            model=body.get("model"),
+            status=response.status_code,
+            body=body,
+        )
+        return body
 
     def stream(
         self,
@@ -567,7 +666,12 @@ class ModelGateway:
             parameters=parameters,
         )
         if self._mode_for(configured, str(payload.get("model") or "")) == "stub":
-            return iter(self._stub_stream(configured))
+            return _logged_stream(
+                self._stub_stream(configured),
+                profile=configured.profile,
+                model=configured.model,
+                status="stub",
+            )
         return self._openai_stream(configured, payload)
 
     def _stub_docs_ocr_content(
@@ -702,6 +806,9 @@ class ModelGateway:
         )
 
         def generate() -> Iterator[str]:
+            parts: list[str] = []
+            status: int | None = None
+            failed = False
             try:
                 with requests.post(
                     endpoint,
@@ -710,6 +817,7 @@ class ModelGateway:
                     timeout=self._timeout_seconds,
                     stream=True,
                 ) as response:
+                    status = response.status_code
                     response.raise_for_status()
                     # llama.cpp often omits charset; requests would then
                     # decode SSE as ISO-8859-1 and corrupt Cyrillic.
@@ -723,11 +831,32 @@ class ModelGateway:
                             else str(raw)
                         )
                         if line.startswith("data:"):
-                            yield f"{line}\n\n"
+                            chunk = f"{line}\n\n"
+                            parts.append(_sse_content(chunk))
+                            yield chunk
             except requests.RequestException as exc:
+                failed = True
+                error_status = getattr(
+                    getattr(exc, "response", None),
+                    "status_code",
+                    status,
+                )
+                logger.exception(
+                    "model_response_failed profile=%s status=%s",
+                    profile.profile,
+                    error_status,
+                )
                 raise ModelGatewayRequestError(
                     "OpenAI-compatible SSE request failed for "
                     f"{profile.profile}"
                 ) from exc
+            finally:
+                if not failed:
+                    _log_model_response(
+                        profile=profile.profile,
+                        model=payload.get("model"),
+                        status=status,
+                        body="".join(parts),
+                    )
 
         return generate()

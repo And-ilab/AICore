@@ -129,6 +129,9 @@ services:
       ASR_HEALTH_URL: ${ASR_HEALTH_URL:-http://asr:8764/health}
       ASR_WS_URL: ${ASR_WS_URL:-ws://asr:8765/}
       AUDIT_FILE_PATH: /var/log/sufler/audit.jsonl
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_NAME: backend
+      LOG_TO_CONSOLE: "true"
     command:
       - sh
       - -c
@@ -139,6 +142,7 @@ services:
     volumes:
       - audit_data:/var/log/sufler
       - static_data:/app/staticfiles
+      - ../../backend/logs:/app/logs
     networks: [internal]
     depends_on:
       postgres:
@@ -207,9 +211,13 @@ services:
       EMBEDDING_TIMEOUT_SECONDS: ${EMBEDDING_TIMEOUT_SECONDS:-180}
       ASSISTANT_MAX_TOKENS: ${ASSISTANT_MAX_TOKENS:-256}
       AUDIT_FILE_PATH: /var/log/sufler/audit.jsonl
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_NAME: celery
+      LOG_TO_CONSOLE: "true"
     command: celery -A sufler worker --loglevel=info --hostname=worker@%h --concurrency=${CELERY_CONCURRENCY:-2}
     volumes:
       - audit_data:/var/log/sufler
+      - ../../backend/logs:/app/logs
     networks: [internal]
     depends_on:
       postgres:
