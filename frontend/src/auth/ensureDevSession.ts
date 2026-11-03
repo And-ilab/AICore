@@ -102,16 +102,19 @@ export async function ensureCsrfToken(forceRefresh = false): Promise<string> {
 
 async function ensureDevSessionOnce(forceRelogin = false): Promise<boolean> {
   // Always re-check /me/ — also refreshes csrftoken after login rotation.
+  // forceRelogin skips that first read and tries dev-login; a failed login
+  // must not hide a session the browser already has.
   let me = forceRelogin
     ? { authenticated: false }
     : await fetchAuthMe().catch(() => ({ authenticated: false }))
   let justLoggedIn = false
   if (!me.authenticated) {
-    if (!isDevRuntime()) return false
-    const loggedIn = await loginDevUser().catch(() => false)
-    if (!loggedIn) return false
-    justLoggedIn = true
-    me = await fetchAuthMe().catch(() => ({ authenticated: false }))
+    if (isDevRuntime()) {
+      justLoggedIn = await loginDevUser().catch(() => false)
+    }
+    if (justLoggedIn || forceRelogin) {
+      me = await fetchAuthMe().catch(() => ({ authenticated: false }))
+    }
     if (!me.authenticated) return false
   }
 
@@ -136,9 +139,9 @@ export async function ensureDevSession(forceRelogin = false): Promise<boolean> {
 }
 
 export function isAuthErrorMessage(message: string): boolean {
-  return /authentication_required|permission_denied|csrf|403 Forbidden|401/i.test(
-    message,
-  )
+  // 401 only as its own status code. A bare substring would treat HTTP 400 as a lost session.
+  return /authentication_required|permission_denied|csrf|403 Forbidden/i.test(message)
+    || /(?:^|[^0-9])401(?:[^0-9]|$)/.test(message)
 }
 
 export function isCsrfErrorMessage(message: string): boolean {

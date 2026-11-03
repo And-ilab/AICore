@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any, Mapping
@@ -67,6 +68,7 @@ from assistant.local_llm import get_models_status, select_model
 from assistant.openapi import build_openapi_document
 from auth.decorators import require_permissions
 from auth.roles import PERM_ASSISTANT_REPORTS, PERM_ASSISTANT_USE
+from hub.content_filters import audit_content_filter_block, match_content_filter
 from hub.assistant_admin import (
     AssistantAdminError,
     list_chat_knowledge_bases,
@@ -75,6 +77,8 @@ from hub.assistant_admin import (
 from hub.kb_admin import KnowledgeBaseError, extract_document_text
 from hub.models import AssistantKnowledgeBaseDocument, KnowledgeBaseDocument
 from ingest.models import AssistantProductionChunk, CCProductionChunk
+
+logger = logging.getLogger(__name__)
 
 CHAT_ATTACHMENT_EXTENSIONS = frozenset(
     {".pdf", ".doc", ".docx", ".txt", ".rtf", ".xlsx"}
@@ -661,6 +665,11 @@ def assistant_chat(request: HttpRequest) -> StreamingHttpResponse | JsonResponse
         "session_id"
     ]
 
+    actor = ""
+    user = getattr(request, "user", None)
+    if getattr(user, "is_authenticated", False):
+        actor = user.get_username()
+
     def event_stream():
         yield from iter_chat_sse(
             parsed["messages"],
@@ -668,6 +677,7 @@ def assistant_chat(request: HttpRequest) -> StreamingHttpResponse | JsonResponse
             request_id=str(request_id),
             expand=bool(parsed.get("expand")),
             skill_instruction=skill_instruction,
+            actor=actor,
         )
 
     response = StreamingHttpResponse(
@@ -751,6 +761,46 @@ def assistant_reports_export(request: HttpRequest) -> HttpResponse:
     return response
 
 
+def _generation_text(prompt: str, values: Mapping[str, Any]) -> str:
+    parts = [prompt]
+    for value in values.values():
+        if isinstance(value, str) and value.strip():
+            parts.append(value.strip())
+    return "\n".join(part for part in parts if part.strip())
+
+
+def _content_filter_response(
+    request: HttpRequest,
+    text: str,
+) -> JsonResponse | None:
+    """Refuse document generation when the source text hits a topic filter."""
+    if not text.strip():
+        return None
+    try:
+        hit = match_content_filter(text)
+    except Exception:
+        logger.exception("content_filter_match_failed")
+        return None
+    if hit is None:
+        return None
+    user = getattr(request, "user", None)
+    username = user.get_username() if getattr(user, "is_authenticated", False) else ""
+    try:
+        audit_content_filter_block(username=username, code=hit.code)
+    except Exception:
+        logger.exception("content_filter_audit_failed")
+    return JsonResponse(
+        {
+            "error": "content_filtered",
+            "details": {
+                "request": [hit.refusal_text],
+                "category": [hit.code],
+            },
+        },
+        status=422,
+    )
+
+
 def _kb_slugs(raw: Any) -> list[str] | None:
     if not isinstance(raw, list):
         return None
@@ -806,6 +856,12 @@ def assistant_doc_template_generate(
         values = parse_field_values(body.get("fields"))
         prompt = str(body.get("prompt") or "").strip()
         kb_slugs = _kb_slugs(body.get("kb_slugs"))
+        filtered = _content_filter_response(
+            request,
+            _generation_text(prompt, values),
+        )
+        if filtered is not None:
+            return filtered
         if mode == "draft":
             return JsonResponse(
                 draft_payload(template, values, prompt=prompt, kb_slugs=kb_slugs)
@@ -850,6 +906,9 @@ def assistant_content_from_prompt(request: HttpRequest) -> JsonResponse:
             },
             status=400,
         )
+    filtered = _content_filter_response(request, message)
+    if filtered is not None:
+        return filtered
     try:
         return JsonResponse(generate_from_prompt(message))
     except AssistantAdminError as exc:

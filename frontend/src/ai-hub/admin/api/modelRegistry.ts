@@ -193,7 +193,42 @@ export async function saveModelParams(
       method: 'PUT',
       csrf: true,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        generation: payload.generation,
+        rag: payload.rag,
+      }),
+    },
+  )
+  return parseResponse(response)
+}
+
+function selectionBody(
+  profile: ModelParamsProfile,
+  selection: ModelSelection,
+): { selection: Partial<ModelSelection> } {
+  if (profile !== 'sufler_cc') {
+    return { selection: { llm: selection.llm } }
+  }
+  return {
+    selection: {
+      llm: selection.llm,
+      speech: selection.speech,
+      answer: selection.answer,
+    },
+  }
+}
+
+export async function saveModelSelection(
+  profile: ModelParamsProfile,
+  selection: ModelSelection,
+): Promise<ModelParamsData> {
+  const response = await authedFetch(
+    `/api/admin/model-registry/model-selection/?profile=${profile}`,
+    {
+      method: 'PUT',
+      csrf: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(selectionBody(profile, selection)),
     },
   )
   return parseResponse(response)

@@ -11,6 +11,7 @@ from audit.events import (
     RESULT_FAILURE,
 )
 from audit.service import emit, request_context, subject_from_request
+from sufler.logging_config import request_id_var
 
 
 class AuditMiddleware:
@@ -26,18 +27,22 @@ class AuditMiddleware:
         request.audit_request_id = (
             request.headers.get("X-Request-ID") or str(uuid.uuid4())
         )
-        response = self.get_response(request)
-        response["X-Request-ID"] = request.audit_request_id
-        if response.status_code in {401, 403}:
-            emit(
-                category=CATEGORY_AUTHORIZATION,
-                event_type=ACCESS_DENIED,
-                result=RESULT_FAILURE,
-                subject=subject_from_request(request),
-                module="auth",
-                description="Request authorization denied",
-                severity="medium",
-                request=request_context(request),
-                outcome={"http_status": response.status_code},
-            )
-        return response
+        token = request_id_var.set(request.audit_request_id)
+        try:
+            response = self.get_response(request)
+            response["X-Request-ID"] = request.audit_request_id
+            if response.status_code in {401, 403}:
+                emit(
+                    category=CATEGORY_AUTHORIZATION,
+                    event_type=ACCESS_DENIED,
+                    result=RESULT_FAILURE,
+                    subject=subject_from_request(request),
+                    module="auth",
+                    description="Request authorization denied",
+                    severity="medium",
+                    request=request_context(request),
+                    outcome={"http_status": response.status_code},
+                )
+            return response
+        finally:
+            request_id_var.reset(token)

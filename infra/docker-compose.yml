@@ -40,7 +40,9 @@ services:
       start_period: 5s
 
   minio:
-    image: minio/minio:latest
+   # image: minio/minio:latest
+   # image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: pgsty/minio:latest
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -186,6 +188,8 @@ services:
       EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-online-chat@belarusbank.by}
       ONLINE_CHAT_FROM_EMAIL: ${ONLINE_CHAT_FROM_EMAIL:-online-chat@belarusbank.by}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_NAME: backend
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command:
@@ -196,6 +200,7 @@ services:
       - "${BACKEND_PORT_HOST:-8001}:8000"
     volumes:
       - ../backend:/app
+      - ../backend/logs:/app/logs
       - audit_data:/var/log/sufler
       - mail_data:/app/var/mail
       - ${KRB5_DIR:-./krb5}:/etc/krb5:ro
@@ -386,13 +391,15 @@ services:
       OK_ACCESS_TOKEN: ${OK_ACCESS_TOKEN:-}
       OK_WEBHOOK_SECRET: ${OK_WEBHOOK_SECRET:-}
       ONLINE_CHAT_API_CHANNEL_SIGNING_SECRET: ${ONLINE_CHAT_API_CHANNEL_SIGNING_SECRET:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_NAME: celery
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: celery -A sufler worker --loglevel=info --hostname=worker@%h
     volumes:
       - ../backend:/app
+      - ../backend/logs:/app/logs
       - audit_data:/var/log/sufler
-      - ../backend:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -433,9 +440,12 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       ONLINE_CHAT_LOST_TIMEOUT_SECONDS: ${ONLINE_CHAT_LOST_TIMEOUT_SECONDS:-600}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_NAME: celery-beat
     command: celery -A sufler beat --loglevel=info
     volumes:
       - ../backend:/app
+      - ../backend/logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -490,11 +500,14 @@ services:
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       TELEGRAM_MODE: ${TELEGRAM_MODE:-polling}
       TELEGRAM_POLL_TIMEOUT_SECONDS: ${TELEGRAM_POLL_TIMEOUT_SECONDS:-25}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_NAME: telegram
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: python manage.py poll_telegram
     volumes:
       - ../backend:/app
+      - ../backend/logs:/app/logs
       - audit_data:/var/log/sufler
     depends_on:
       postgres:

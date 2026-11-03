@@ -106,7 +106,7 @@ enable_cpu_inference_env() {
   set_env_key OPENAI_TIMEOUT_SECONDS 600
   set_env_key EMBEDDING_MODE http
   set_env_key EMBEDDING_BASE_URL http://embedding:8090
-  set_env_key EMBEDDING_MODEL intfloat/multilingual-e5-large
+  set_env_key EMBEDDING_MODEL /models/multilingual-e5-large
   set_env_key EMBEDDING_DIMENSIONS 1024
   set_env_key EMBEDDING_TIMEOUT_SECONDS 180
   set_env_key ASSISTANT_MAX_TOKENS 256

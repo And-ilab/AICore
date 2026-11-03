@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+import logging
 import uuid
 from .models import Client, ChatSession, Message, CallLog
 from .forms import ClientInfoForm
@@ -9,6 +10,8 @@ from django.utils import timezone
 from datetime import timedelta
 import json
 from django.db.models import Count
+
+logger = logging.getLogger(__name__)
 
 
 def dashboard(request):
@@ -245,6 +248,7 @@ def chat_history(request, session_id):
 @require_POST
 def save_message(request):
     """Сохранение сообщения через AJAX"""
+    session_id = None
     try:
         data = json.loads(request.body)
         session_id = data.get('session_id')
@@ -252,7 +256,11 @@ def save_message(request):
         content = data.get('content')
         is_transcription = data.get('is_transcription', False)
 
-        print(f"Сохранение сообщения: session_id={session_id}, type={message_type}, content={content}")
+        logger.info(
+            "save_message session_id=%s type=%s",
+            session_id,
+            message_type,
+        )
 
         chat_session = get_object_or_404(ChatSession, id=session_id)
 
@@ -264,16 +272,16 @@ def save_message(request):
             timestamp=timezone.now()
         )
 
-        print(f"Сообщение сохранено с ID: {message.id}")
+        logger.info("save_message stored message_id=%s", message.id)
 
         return JsonResponse({
             'success': True,
             'message_id': message.id,
             'timestamp': message.timestamp.strftime('%H:%M')
         })
-    except Exception as e:
-        print(f"Ошибка сохранения сообщения: {e}")
-        return JsonResponse({'success': False, 'error': str(e)})
+    except Exception as exc:
+        logger.exception("save_message failed session_id=%s", session_id)
+        return JsonResponse({'success': False, 'error': str(exc)})
 
 
 @csrf_exempt

@@ -711,6 +711,28 @@ class SuflerPolicy(models.Model):
         return f"sufler-policy max={self.max_hints}"
 
 
+class AssistantContentFilter(models.Model):
+    """Topic filter for the assistant chat (§5.1.15). Not applied to the sufler."""
+
+    code = models.SlugField(max_length=32, unique=True)
+    name = models.CharField(max_length=80)
+    enabled = models.BooleanField(default=True)
+    keywords = models.JSONField(default=list)
+    exceptions = models.JSONField(default=list)
+    refusal_text = models.TextField()
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.CharField(max_length=150, blank=True, default="")
+
+    class Meta:
+        ordering = ("sort_order", "code")
+        verbose_name = "Assistant content filter"
+        verbose_name_plural = "Assistant content filters"
+
+    def __str__(self) -> str:
+        return self.code
+
+
 class DialogScenario(models.Model):
     """CC dialog scenario registry (FR-SCR-01…12 / §4.5.2)."""
 

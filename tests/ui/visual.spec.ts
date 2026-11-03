@@ -91,14 +91,14 @@ test('admin sidebar exposes all groups and routable screens', async ({ page }) =
   }
 
   const links = sidebar.getByRole('link')
-  await expect(links).toHaveCount(21)
+  await expect(links).toHaveCount(28)
   await expect(page.getByTestId('admin-save-footer')).toBeVisible()
   await expect(page.getByLabel('Демо роль')).toBeVisible()
 
   const routes = [
     'audit', 'llm_config_assistant', 'model_params', 'prompts_assistant',
     'capabilities', 'kb_admin', 'qu_admin', 'data_sources', 'assistant_tools',
-    'monitoring', 'llm_config_cc', 'model_params/cc', 'scenario_editor',
+    'content_filters', 'monitoring', 'llm_config_cc', 'model_params/cc', 'scenario_editor',
     'scenario_test', 'scenario_bindings', 'sufler_policies', 'ocr', 'doc_types',
     'doc_export', 'external',
   ]

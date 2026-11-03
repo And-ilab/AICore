@@ -10,6 +10,8 @@ venv/
 **/.env.local
 backend/services/asr/model/
 backend/var/
+backend/logs/
+*.md
 
 # TEST Postgres dumps (backup stub)
 infra/test/backups/
@@ -116,3 +118,5 @@ docs/runbooks/dev-contour-oktell-sufler.html
 docs/runbooks/dev-contour-oktell-sufler.docx
 docs/runbooks/dev-contour-oktell-sufler-2.docx
 docs/runbooks/*.png
+backend/services/embedding/wheels/
+*.whl

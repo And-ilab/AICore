@@ -25,6 +25,7 @@ from hub.views import (
     knowledge_base_upload,
     knowledge_bases,
     model_params,
+    model_selection,
     ocr_model_choice,
     qu_example_detail,
     qu_example_review,
@@ -32,6 +33,7 @@ from hub.views import (
     qu_kb_documents,
     qu_policy,
     qu_preview,
+    assistant_content_filters,
     sufler_policies,
     dialog_scenarios,
     dialog_scenario_detail,
@@ -46,11 +48,21 @@ urlpatterns = [
         name="model_registry_model_params",
     ),
     path(
+        "model-registry/model-selection/",
+        model_selection,
+        name="model_registry_model_selection",
+    ),
+    path(
         "model-registry/ocr-model/",
         ocr_model_choice,
         name="model_registry_ocr_model",
     ),
     path("sufler/policies/", sufler_policies, name="sufler_policies"),
+    path(
+        "assistant/content-filters/",
+        assistant_content_filters,
+        name="assistant_content_filters",
+    ),
     path("scenarios/", dialog_scenarios, name="dialog_scenarios"),
     path("scenarios/<str:code>/", dialog_scenario_detail, name="dialog_scenario_detail"),
     path(

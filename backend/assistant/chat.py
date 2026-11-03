@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import uuid
 from typing import Any, Iterator, Mapping, Sequence
 
 from core.embeddings import embedding_backend_info
 from core.model_gateway import ModelGateway, ModelGatewayConfigurationError
+from hub.content_filters import (
+    apply_content_filter_instruction,
+    audit_content_filter_block,
+    match_content_filter,
+)
 from hub.model_registry_store import get_model_settings
 from assistant.idp import (
     build_attachment_prompt,
@@ -18,7 +24,10 @@ from assistant.idp import (
 from qu.assistant_retrieval import preview_assistant_query
 from hub.skill_store import apply_skill_layer
 
+logger = logging.getLogger(__name__)
+
 PROFILE = "assistant_bank"
+_ATTACHMENT_MARKER = "[Вложение"
 _ANSWER_STYLE = (
     "Пиши обычным текстом, без markdown (без **, *, заголовков #). "
     "Не перечисляй источники в тексте, не пиши «Источники:», номера [1] "
@@ -256,6 +265,15 @@ def _last_user_text(messages: Sequence[Mapping[str, str]]) -> str:
         if item.get("role") == "user":
             return str(item.get("content") or "").strip()
     return ""
+
+
+def _filter_query(messages: Sequence[Mapping[str, str]]) -> str:
+    """User question only. Attachment fragments are not a content-filter subject."""
+    text = _last_user_text(messages)
+    marker_at = text.find(_ATTACHMENT_MARKER)
+    if marker_at >= 0:
+        text = text[:marker_at]
+    return text.strip()
 
 
 def _is_http_permalink(permalink: str) -> bool:
@@ -644,8 +662,22 @@ def iter_chat_sse(
     request_id: str | None = None,
     expand: bool = False,
     skill_instruction: str = "",
+    actor: str = "",
 ) -> Iterator[str]:
     """Yield OpenAI-compatible SSE frames from ``assistant_bank`` with RAG."""
+    try:
+        content_hit = match_content_filter(_filter_query(messages))
+    except Exception:
+        logger.exception("content_filter_match_failed")
+        content_hit = None
+    if content_hit is not None:
+        try:
+            audit_content_filter_block(username=actor, code=content_hit.code)
+        except Exception:
+            logger.exception("content_filter_audit_failed")
+        yield from _iter_plain_sse(content_hit.refusal_text)
+        return
+
     expand = _effective_expand(expand)
     char_limit = _response_char_limit(expand=expand)
     active = gateway or ModelGateway.from_registry()
@@ -749,6 +781,8 @@ def iter_chat_sse(
             else item
             for item in outbound
         ]
+
+    outbound = apply_content_filter_instruction(outbound)
 
     try:
         stream = active.stream(PROFILE, outbound, **parameters)

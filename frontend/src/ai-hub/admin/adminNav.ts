@@ -14,6 +14,7 @@ export type AdminScreen =
   | 'qu_admin'
   | 'data_sources'
   | 'assistant_tools'
+  | 'content_filters'
   | 'monitoring'
   | 'llm_config_cc'
   | 'scenario_editor'
@@ -102,6 +103,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { id: 'qu_admin', label: 'Модуль понимания', group: 'АССИСТЕНТ', roleCodes: QU_ADMINS, demoRoles: ['kb_admin', 'auditor'] },
   { id: 'data_sources', label: 'Источники данных', group: 'АССИСТЕНТ', roleCodes: ASSISTANT_ADMINS, demoRoles: ['kb_admin', 'auditor'] },
   { id: 'assistant_tools', label: 'Инструменты ассистента', group: 'АССИСТЕНТ', roleCodes: ASSISTANT_ADMINS, demoRoles: ['kb_admin', 'auditor'] },
+  { id: 'content_filters', label: 'Фильтры контента', group: 'АССИСТЕНТ', roleCodes: ASSISTANT_ADMINS, demoRoles: ['kb_admin', 'auditor'] },
   { id: 'monitoring', label: 'Мониторинг ассистента', group: 'АССИСТЕНТ', roleCodes: ASSISTANT_REPORTS_ROLES, demoRoles: ['kb_admin', 'auditor'] },
   { id: 'llm_config_cc', label: 'Конфигурация LLM КЦ', group: 'СУФЛЁР / КЦ', featured: true, roleCodes: CC_ADMINS, demoRoles: ['software_admin', 'cc_admin', 'kb_admin', 'auditor'] },
   { id: 'model_params', label: 'Параметры модели (КЦ)', group: 'СУФЛЁР / КЦ', profile: 'cc', roleCodes: CC_ADMINS, demoRoles: ['software_admin', 'cc_admin', 'kb_admin', 'auditor'] },
