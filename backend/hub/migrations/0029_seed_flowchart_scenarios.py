@@ -11,7 +11,7 @@ def seed_flowcharts(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("hub", "0028_slot_model_selection"),
+        ("hub", "0029_assistant_content_filter"),
     ]
 
     operations = [
