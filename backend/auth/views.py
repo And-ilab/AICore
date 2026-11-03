@@ -10,13 +10,9 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
-from auth.negotiate import _establish_sso
+from auth.negotiate import handshake
 from auth.roles import role_codes_for_user, tabs_for_user
-from auth.sso import (
-    SSO_STATE_COOKIE,
-    apply_display_name_fallback,
-    profile_names,
-)
+from auth.sso import SSO_STATE_COOKIE, ad_profile
 
 
 def _auth_payload(request: HttpRequest) -> dict:
@@ -31,7 +27,7 @@ def _auth_payload(request: HttpRequest) -> dict:
         "roles": sorted(role_codes_for_user(request.user)),
         "tabs": list(tabs_for_user(request.user)),
     }
-    body.update(profile_names(request.user, authenticated))
+    body.update(ad_profile.names(request.user, authenticated))
     return body
 
 
@@ -44,7 +40,7 @@ def auth_context(request: HttpRequest) -> JsonResponse:
     is 401 ``WWW-Authenticate: Negotiate`` so the browser can send the
     Windows ticket without a second password.
     """
-    challenge = _establish_sso(request)
+    challenge = handshake.establish(request)
     if challenge is not None:
         return challenge
     response = JsonResponse(_auth_payload(request))
@@ -88,7 +84,7 @@ def auth_login(request: HttpRequest) -> JsonResponse:
             {"ok": False, "error": "invalid_credentials"},
             status=401,
         )
-    apply_display_name_fallback(user)
+    ad_profile.apply_display_name(user)
     if not hasattr(user, "backend"):
         backends = getattr(settings, "AUTHENTICATION_BACKENDS", ())
         user.backend = (

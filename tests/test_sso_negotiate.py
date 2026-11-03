@@ -25,23 +25,22 @@ from django.test import Client, SimpleTestCase, TestCase, override_settings  # n
 from auth.sso import (  # noqa: E402
     NegotiateResult,
     SsoError,
-    apply_display_name_fallback,
-    provision_ad_user,
-    sam_account_name,
+    account_name,
+    ad_profile,
 )
 
 
 class SamAccountNameTest(SimpleTestCase):
     def test_strips_realm_domain_and_extra_components(self):
-        self.assertEqual(sam_account_name("ivan.petrov@BANK.LOCAL"), "ivan.petrov")
-        self.assertEqual(sam_account_name(r"BANK\ivan.petrov"), "ivan.petrov")
+        self.assertEqual(account_name.parse("ivan.petrov@BANK.LOCAL"), "ivan.petrov")
+        self.assertEqual(account_name.parse(r"BANK\ivan.petrov"), "ivan.petrov")
         self.assertEqual(
-            sam_account_name("ivan.petrov/admin@BANK.LOCAL"),
+            account_name.parse("ivan.petrov/admin@BANK.LOCAL"),
             "ivan.petrov",
         )
-        self.assertEqual(sam_account_name("  ivan.petrov  "), "ivan.petrov")
-        self.assertEqual(sam_account_name("Name(ivan.petrov@BANK.LOCAL)"), "ivan.petrov")
-        self.assertEqual(sam_account_name(""), "")
+        self.assertEqual(account_name.parse("  ivan.petrov  "), "ivan.petrov")
+        self.assertEqual(account_name.parse("Name(ivan.petrov@BANK.LOCAL)"), "ivan.petrov")
+        self.assertEqual(account_name.parse(""), "")
 
 
 @override_settings(AUTH_SSO_NEGOTIATE=False)
@@ -73,7 +72,7 @@ class AuthMeProfileTest(TestCase):
             attrs = {"displayName": ["Иванов Иван Иванович"]}
 
         user.ldap_user = _Ldap()
-        apply_display_name_fallback(user)
+        ad_profile.apply_display_name(user)
         user.refresh_from_db()
         self.assertEqual(user.first_name, "Иванов Иван Иванович")
 
@@ -84,7 +83,7 @@ class AuthMeProfileTest(TestCase):
             last_name="Петров",
         )
         named.ldap_user = _Ldap()
-        apply_display_name_fallback(named)
+        ad_profile.apply_display_name(named)
         named.refresh_from_db()
         self.assertEqual(named.first_name, "Иван")
         self.assertEqual(named.last_name, "Петров")
@@ -111,15 +110,15 @@ class NegotiateLoginTest(TestCase):
             ad_group, _ = Group.objects.get_or_create(name=group)
             user.groups.add(ad_group)
         # ModelBackend is what the test client can reload from the session.
-        # Production provision_ad_user sets the LDAP backend instead.
+        # Production AdProfile.provision sets the LDAP backend instead.
         user.backend = "django.contrib.auth.backends.ModelBackend"
         return user
 
     def test_anonymous_me_asks_for_a_ticket(self):
-        with self.assertLogs("auth.sso", level="INFO") as logs:
+        with self.assertLogs("auth.negotiate", level="INFO") as logs:
             response = self.client.get("/api/auth/me/")
         self.assertTrue(
-            any("stage=challenge" in line and "http=401" in line for line in logs.output)
+            any("sso_challenge" in line and "http=401" in line for line in logs.output)
         )
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response["WWW-Authenticate"], "Negotiate")
@@ -128,14 +127,12 @@ class NegotiateLoginTest(TestCase):
         self.assertIsNone(body["display_name"])
         self.assertEqual(body["roles"], [])
 
-    @patch("auth.sso.provision_ad_user")
-    @patch("auth.negotiate.provision_ad_user")
-    @patch("auth.negotiate.accept_negotiate")
+    @patch("auth.negotiate.handshake.profile.provision")
+    @patch("auth.negotiate.handshake.ticket.accept")
     def test_ticket_opens_session_with_ad_roles(
         self,
         accept,
         provision,
-        refresh_provision,
     ):
         user = self._ad_user(
             "ivan.petrov",
@@ -170,10 +167,10 @@ class NegotiateLoginTest(TestCase):
             again.json()["roles"],
             ["contact_center_telephony_operator"],
         )
-        refresh_provision.assert_not_called()
+        provision.assert_called_once_with("ivan.petrov")
 
-    @patch("auth.negotiate.provision_ad_user")
-    @patch("auth.negotiate.accept_negotiate")
+    @patch("auth.negotiate.handshake.profile.provision")
+    @patch("auth.negotiate.handshake.ticket.accept")
     def test_user_without_mapped_group_still_signs_in(self, accept, provision):
         user = self._ad_user("ivan.petrov", group=None)
         accept.return_value = NegotiateResult(username="ivan.petrov")
@@ -190,27 +187,27 @@ class NegotiateLoginTest(TestCase):
         self.assertEqual(body["display_name"], "Иван Петров")
         self.assertEqual(body["roles"], [])
 
-    @patch("auth.negotiate.provision_ad_user", return_value=None)
+    @patch("auth.negotiate.handshake.profile.provision", return_value=None)
     @patch(
-        "auth.negotiate.accept_negotiate",
+        "auth.negotiate.handshake.ticket.accept",
         return_value=NegotiateResult(username="missing"),
     )
     def test_unknown_ad_user_is_rejected(self, _accept, _provision):
-        with self.assertLogs("auth.sso", level="WARNING") as logs:
+        with self.assertLogs("auth.negotiate", level="WARNING") as logs:
             response = self.client.get(
                 "/api/auth/me/",
                 HTTP_AUTHORIZATION="Negotiate dG9rZW4=",
             )
         self.assertTrue(
             any(
-                "stage=ad_lookup" in line and "error=ad_user_not_found" in line
+                "sso_ad_lookup" in line and "error=ad_user_not_found" in line
                 for line in logs.output
             )
         )
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["error"], "ad_user_not_found")
 
-    @patch("auth.negotiate.accept_negotiate")
+    @patch("auth.negotiate.handshake.ticket.accept")
     def test_incomplete_negotiate_keeps_state(self, accept):
         accept.return_value = NegotiateResult(
             continuation="next-token",
@@ -225,16 +222,19 @@ class NegotiateLoginTest(TestCase):
         self.assertEqual(response.cookies["sso_nego"].value, "state-1")
         self.assertEqual(response.json()["error"], "negotiate_continue")
 
-    @patch("auth.negotiate.accept_negotiate", side_effect=SsoError("negotiate_rejected"))
+    @patch(
+        "auth.negotiate.handshake.ticket.accept",
+        side_effect=SsoError("negotiate_rejected"),
+    )
     def test_rejected_ticket(self, _accept):
-        with self.assertLogs("auth.sso", level="WARNING") as logs:
+        with self.assertLogs("auth.negotiate", level="WARNING") as logs:
             response = self.client.get(
                 "/api/auth/me/",
                 HTTP_AUTHORIZATION="Negotiate dG9rZW4=",
             )
         self.assertTrue(
             any(
-                "stage=accept_ticket" in line
+                "sso_accept_ticket" in line
                 and "http=401" in line
                 and "error=negotiate_rejected" in line
                 for line in logs.output
@@ -249,7 +249,7 @@ class ProvisionGuardTest(SimpleTestCase):
     @override_settings(AUTH_BACKEND="mock_ldap", AUTH_SSO_NEGOTIATE=True)
     def test_provision_requires_ldaps_backend(self):
         with self.assertRaises(SsoError) as caught:
-            provision_ad_user("ivan.petrov")
+            ad_profile.provision("ivan.petrov")
         self.assertEqual(caught.exception.code, "ldaps_required")
 
 
