@@ -25,6 +25,7 @@ from hub.views import (
     knowledge_base_upload,
     knowledge_bases,
     model_params,
+    model_selection,
     ocr_model_choice,
     qu_example_detail,
     qu_example_review,
@@ -44,6 +45,11 @@ urlpatterns = [
         "model-registry/model-params/",
         model_params,
         name="model_registry_model_params",
+    ),
+    path(
+        "model-registry/model-selection/",
+        model_selection,
+        name="model_registry_model_selection",
     ),
     path(
         "model-registry/ocr-model/",
