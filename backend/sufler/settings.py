@@ -213,6 +213,11 @@ AUTH_MODE = resolve_auth_backend(
 )
 # Canonical name after normalize (ldaps replaces legacy "ldap").
 AUTH_BACKEND = AUTH_MODE
+# Kerberos Negotiate. Off until the bank provides a hostname, SPN and keytab.
+AUTH_SSO_NEGOTIATE = os.getenv(
+    "AUTH_SSO_NEGOTIATE",
+    "false",
+).lower() in {"1", "true", "yes"}
 AUTH_MOCK_LDAP_USERS_JSON = os.getenv("AUTH_MOCK_LDAP_USERS_JSON", "")
 AUTH_MOCK_LDAP_DEFAULT_PASSWORD = os.getenv(
     "AUTH_MOCK_LDAP_DEFAULT_PASSWORD",

@@ -72,3 +72,26 @@ curl -s -b cookies.txt http://127.0.0.1:8000/api/auth/me/
 | Mock | `mock_ldap` auth fails when `DEBUG=false` |
 
 **Rollback:** set `AUTH_BACKEND=mock_ldap` only on non-prod with `DJANGO_DEBUG=true`; never leave mock enabled on bank TEST/PROD.
+
+## Windows SSO (Negotiate)
+
+Silent sign-in uses the Windows session the employee already opened. LDAPS still supplies the name, surname and groups. The protocol is Kerberos, not a second password.
+
+`AUTH_SSO_NEGOTIATE` stays `false` until every row below is true. Password `POST /api/auth/login/` keeps working either way.
+
+| Need | Who | Why |
+| --- | --- | --- |
+| DNS name for the site | Bank DNS | The browser will not send a Kerberos ticket to a bare IP. One A record to the same address is enough. Open the site by that name. |
+| SPN `HTTP/<that-name>` and a keytab | Bank AD | The container checks the ticket with this key. Copy the keytab to `infra/krb5/krb5.keytab` (gitignored). |
+| Realm and KDC | Bank AD | Copy `infra/krb5/krb5.conf.example` to `infra/krb5/krb5.conf` and fill them. |
+| Intranet browser policy | Bank workplace admins | Edge: Local intranet zone, automatic logon with the current user. Chrome: `AuthServerAllowlist`. Firefox: `network.negotiate-auth.trusted-uris`. Without this the browser does not send the ticket and `/api/auth/me/` stays 401. |
+
+Frontend image for this stand: build with `VITE_ALLOW_DEV_LOGIN`, `VITE_DEV_AUTH_PASSWORD` and `VITE_SUFLER_DEMO` empty, so a failed ticket does not sign in `dev-role-01` or paint a demo name.
+
+```powershell
+# After AUTH_SSO_NEGOTIATE=true, keytab mounted, and the site opened by its DNS name:
+# In the browser, DevTools → GET /api/auth/me/ (the 401 Negotiate hop is usually invisible).
+# Expect 200, authenticated true, display_name from AD, roles from the user's groups.
+```
+
+**Pass:** corner of the portal shows the AD given name and surname; no application password was typed. A user outside the 13 role groups still gets a session and an empty launcher. A request with no ticket and no session cookie returns 401 and `WWW-Authenticate: Negotiate`.

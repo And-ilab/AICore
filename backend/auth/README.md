@@ -70,6 +70,21 @@ Plain `ldap://` is rejected unless `AUTH_LDAP_ALLOW_INSECURE_URI=true` (lab).
 
 Ops smoke: [docs/runbooks/i10-ldaps-auth-smoke.md](../../docs/runbooks/i10-ldaps-auth-smoke.md).
 
+### Windows SSO (Kerberos Negotiate)
+
+`AUTH_SSO_NEGOTIATE=true` makes `GET /api/auth/me/` answer `401 WWW-Authenticate: Negotiate`
+when the browser has no session. The domain workstation then sends the
+Windows ticket. Django checks it with the keytab (`KRB5_KTNAME`) and loads
+the person through the existing LDAPS service bind (`LDAPBackend.populate_user`):
+`givenName` / `sn`, or `displayName` when those are empty, plus AD groups → I.4 roles.
+The user password is not sent again. `POST /api/auth/login/` stays available.
+
+Off by default. A bare IP cannot do this: the site must be opened by the DNS
+name registered as `HTTP/<name>` in the bank SPN. The bank also has to mark
+that name as intranet in the browser policy, otherwise the ticket is not sent
+and `/api/auth/me/` stays 401. Keytab and `krb5.conf` are mounted from
+`infra/krb5/` and are not committed.
+
 ## RBAC request context
 
 `auth.middleware.RBACMiddleware` runs after Django

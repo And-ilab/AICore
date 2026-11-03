@@ -80,6 +80,9 @@ services:
       AUTH_LDAP_TLS_CACERTFILE: ${AUTH_LDAP_TLS_CACERTFILE:-}
       AUTH_LDAP_ROLE_GROUP_MAP_JSON: ${AUTH_LDAP_ROLE_GROUP_MAP_JSON:-}
       AUTH_LDAP_CACHE_TIMEOUT: ${AUTH_LDAP_CACHE_TIMEOUT:-300}
+      AUTH_SSO_NEGOTIATE: ${AUTH_SSO_NEGOTIATE:-false}
+      KRB5_CONFIG: /etc/krb5/krb5.conf
+      KRB5_KTNAME: FILE:/etc/krb5/krb5.keytab
       SUZ_INGEST_MODE: ${SUZ_INGEST_MODE:-mock}
       SUZ_WEBHOOK_HMAC_SECRET: ${SUZ_WEBHOOK_HMAC_SECRET:-}
       SUZ_ALLOWED_IBLOCK_IDS: ${SUZ_ALLOWED_IBLOCK_IDS:-}
@@ -195,6 +198,7 @@ services:
       - ../backend:/app
       - audit_data:/var/log/sufler
       - mail_data:/app/var/mail
+      - ${KRB5_DIR:-./krb5}:/etc/krb5:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -286,6 +290,9 @@ services:
       AUTH_LDAP_TLS_CACERTFILE: ${AUTH_LDAP_TLS_CACERTFILE:-}
       AUTH_LDAP_ROLE_GROUP_MAP_JSON: ${AUTH_LDAP_ROLE_GROUP_MAP_JSON:-}
       AUTH_LDAP_CACHE_TIMEOUT: ${AUTH_LDAP_CACHE_TIMEOUT:-300}
+      AUTH_SSO_NEGOTIATE: ${AUTH_SSO_NEGOTIATE:-false}
+      KRB5_CONFIG: /etc/krb5/krb5.conf
+      KRB5_KTNAME: FILE:/etc/krb5/krb5.keytab
       SUZ_INGEST_MODE: ${SUZ_INGEST_MODE:-mock}
       SUZ_WEBHOOK_HMAC_SECRET: ${SUZ_WEBHOOK_HMAC_SECRET:-}
       SUZ_ALLOWED_IBLOCK_IDS: ${SUZ_ALLOWED_IBLOCK_IDS:-}

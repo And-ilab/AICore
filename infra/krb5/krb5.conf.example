@@ -1,0 +1,18 @@
+# Copy to krb5.conf and fill the bank realm and KDC. Do not commit krb5.conf or the keytab.
+# The backend container reads /etc/krb5/krb5.conf and FILE:/etc/krb5/krb5.keytab.
+
+[libdefaults]
+    default_realm = BANK.LOCAL
+    dns_lookup_realm = false
+    dns_lookup_kdc = false
+    rdns = false
+
+[realms]
+    BANK.LOCAL = {
+        kdc = kdc.bank.local
+        admin_server = kdc.bank.local
+    }
+
+[domain_realm]
+    .bank.local = BANK.LOCAL
+    bank.local = BANK.LOCAL

@@ -18,6 +18,7 @@ RUN apt-get update \
         fonts-dejavu-core \
         libgomp1 \
         fonts-liberation \
+        libkrb5-3 \
     && apt-get install -y --no-install-recommends unrar-free unar || true \
     && rm -rf /var/lib/apt/lists/*
 

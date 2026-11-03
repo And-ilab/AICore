@@ -262,6 +262,8 @@ class RBACFoundationTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(payload["authenticated"])
         self.assertEqual(payload["username"], "test-user")
+        self.assertEqual(payload["display_name"], "test-user")
+        self.assertIsNone(payload["first_name"])
         self.assertEqual(
             payload["roles"],
             ["contact_center_telephony_operator"],
@@ -276,6 +278,9 @@ class RBACFoundationTest(unittest.TestCase):
 
         self.assertFalse(payload["authenticated"])
         self.assertIsNone(payload["username"])
+        self.assertIsNone(payload["first_name"])
+        self.assertIsNone(payload["last_name"])
+        self.assertIsNone(payload["display_name"])
         self.assertEqual(payload["roles"], [])
 
 

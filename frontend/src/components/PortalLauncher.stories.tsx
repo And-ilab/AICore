@@ -40,5 +40,8 @@ export const CompactMenu: Story = {
     initialMenuOpen: true,
     roleLabel: 'Оператор канала телефония Контакт-центра',
     username: 'Иванова М.П.',
+    displayName: 'Иванова М.П.',
+    firstName: 'Мария',
+    lastName: 'Иванова',
   },
 }

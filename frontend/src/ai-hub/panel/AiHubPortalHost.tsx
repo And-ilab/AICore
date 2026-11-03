@@ -15,6 +15,8 @@ import './AiHubPanel.css'
 
 export interface AiHubPortalHostProps {
   username?: string | null
+  firstName?: string | null
+  lastName?: string | null
 }
 
 function readOpenModulesFromUrl(): LauncherModule[] {
@@ -32,6 +34,8 @@ function readOpenModulesFromUrl(): LauncherModule[] {
 
 export function AiHubPortalHost({
   username = 'Демо-пользователь',
+  firstName = null,
+  lastName = null,
 }: AiHubPortalHostProps) {
   const [role, setRole] = useState<DemoRoleDefinition | null>(
     () => findDemoRole(readStoredDemoRole()) ?? null,
@@ -77,6 +81,9 @@ export function AiHubPortalHost({
     <PortalLauncher
       roles={[role.code]}
       username={username}
+      displayName={username}
+      firstName={firstName}
+      lastName={lastName}
       roleLabel={role.label}
       menuVariant="compact"
       initialWindows={initialWindows}

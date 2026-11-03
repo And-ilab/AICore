@@ -20,6 +20,11 @@ infra/test/certs/*.key
 infra/test/certs/*.crt
 !infra/test/certs/README.md
 
+# Kerberos keytab and the live krb5.conf (bank-issued, not for git)
+infra/krb5/*.keytab
+infra/krb5/krb5.conf
+!infra/krb5/krb5.conf.example
+
 # Django
 *.sqlite3
 db.sqlite3

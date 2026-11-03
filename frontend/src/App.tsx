@@ -56,13 +56,29 @@ function jobTitleFromRoles(roles: readonly string[]): string {
 }
 
 function employeeDisplayName(
+  displayName: string | null | undefined,
   username: string | null | undefined,
   roles: readonly string[],
+  authenticated: boolean,
 ) {
+  if (authenticated) {
+    const adName = (displayName || '').trim()
+    if (adName && adName !== 'Development user') return adName
+    if (username && username !== 'Development user') return username
+  }
   const persona = personaForDemoRole(roles[0])
   if (persona) return persona.name
   if (username && username !== 'Development user') return username
   return 'Сотрудник КЦ'
+}
+
+function sessionLabel(auth: {
+  authenticated: boolean
+  displayName: string | null
+  username: string | null
+}): string | null {
+  if (auth.authenticated && auth.displayName) return auth.displayName
+  return auth.username
 }
 
 const ONLINE_CHAT_UI_ROLES = new Set([
@@ -73,10 +89,20 @@ const ONLINE_CHAT_UI_ROLES = new Set([
 ])
 
 /**
- * RolePicker selection is the source of truth for online-chat tab isolation.
- * Multi-role auth without a picked demo role does not unlock all tabs at once.
+ * A live AD session keeps the roles from /api/auth/me/.
+ * The demo role picker applies only when there is no session.
+ * In DEV, ?demo_role= still overrides that session.
  */
-function rolesForUi(authRoles: readonly string[], queryRole?: string | null): string[] {
+function rolesForUi(
+  authRoles: readonly string[],
+  queryRole: string | null | undefined,
+  authenticated: boolean,
+): string[] {
+  if (import.meta.env.DEV && queryRole && findDemoRole(queryRole)) {
+    storeDemoRole(queryRole)
+    return [queryRole]
+  }
+  if (authenticated) return [...authRoles]
   if (queryRole && findDemoRole(queryRole)) {
     storeDemoRole(queryRole)
     return [queryRole]
@@ -159,14 +185,14 @@ function App() {
       <StandaloneModule
         module={route.slice(1) as LauncherModule}
         roles={auth.roles}
-        username={auth.username}
+        username={sessionLabel(auth)}
       />
     )
   }
 
   if (route === '/online-chat' || route.startsWith('/online-chat/')) {
     const params = new URLSearchParams(window.location.search)
-    const roles = rolesForUi(auth.roles, params.get('demo_role'))
+    const roles = rolesForUi(auth.roles, params.get('demo_role'), auth.authenticated)
     const isSupervisorRoute = route === '/online-chat/supervisor'
     const isOperatorsRoute = route === '/online-chat/operators'
     const isAdminRoute = route === '/online-chat/admin'
@@ -207,7 +233,12 @@ function App() {
       params.get('mode') === 'view' || (!canOperateArm && canViewArm)
     )
     const allowTransferView = canTransferInOnlineChatView(roles)
-    const viewerName = employeeDisplayName(auth.username, roles)
+    const viewerName = employeeDisplayName(
+      auth.displayName,
+      auth.username,
+      roles,
+      auth.authenticated,
+    )
     const viewerTitle = jobTitleFromRoles(roles)
     const armRole = simOperate
       ? 'operator' as const
@@ -384,14 +415,20 @@ function App() {
     }
     return (
       <InternalKcDialogApp
-        username={auth.username ?? undefined}
+        username={sessionLabel(auth) ?? undefined}
         demoMode={import.meta.env.VITE_SUFLER_DEMO === '1' || import.meta.env.DEV}
       />
     )
   }
 
   if (route === '/ai-hub') {
-    return <AiHubPortalHost username={auth.username} />
+    return (
+      <AiHubPortalHost
+        username={sessionLabel(auth)}
+        firstName={auth.authenticated ? auth.firstName : null}
+        lastName={auth.authenticated ? auth.lastName : null}
+      />
+    )
   }
 
   if (route === '/ai-hub/admin' || route.startsWith('/ai-hub/admin/')) {
@@ -448,7 +485,7 @@ function App() {
           : 'chat' as const
     return (
       <AiHubReportsApp
-        username={auth.username ?? undefined}
+        username={sessionLabel(auth) ?? undefined}
         section={section}
       />
     )
@@ -506,7 +543,13 @@ function App() {
           </Card>
         </div>
       )}
-      <PortalLauncher roles={auth.roles} />
+      <PortalLauncher
+        roles={auth.roles}
+        username={sessionLabel(auth)}
+        displayName={auth.authenticated ? sessionLabel(auth) : null}
+        firstName={auth.authenticated ? auth.firstName : null}
+        lastName={auth.authenticated ? auth.lastName : null}
+      />
     </div>
   )
 }

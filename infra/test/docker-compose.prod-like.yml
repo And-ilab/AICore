@@ -129,6 +129,9 @@ services:
       ASR_HEALTH_URL: ${ASR_HEALTH_URL:-http://asr:8764/health}
       ASR_WS_URL: ${ASR_WS_URL:-ws://asr:8765/}
       AUDIT_FILE_PATH: /var/log/sufler/audit.jsonl
+      AUTH_SSO_NEGOTIATE: ${AUTH_SSO_NEGOTIATE:-false}
+      KRB5_CONFIG: /etc/krb5/krb5.conf
+      KRB5_KTNAME: FILE:/etc/krb5/krb5.keytab
     command:
       - sh
       - -c
@@ -139,6 +142,7 @@ services:
     volumes:
       - audit_data:/var/log/sufler
       - static_data:/app/staticfiles
+      - ${KRB5_DIR:-../krb5}:/etc/krb5:ro
     networks: [internal]
     depends_on:
       postgres:
