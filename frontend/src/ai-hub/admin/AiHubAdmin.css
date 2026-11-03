@@ -621,6 +621,65 @@
   font-weight: 600;
 }
 
+.content-filters {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.content-filters__intro {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: .875rem;
+  line-height: 1.45;
+}
+
+.content-filters__card {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.content-filters__head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.content-filters__head label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+
+.content-filters__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.content-filters__grid label,
+.content-filters__wide {
+  display: grid;
+  gap: 6px;
+  font-size: .8125rem;
+}
+
+.content-filters__grid input,
+.content-filters__grid textarea,
+.content-filters__wide textarea {
+  width: 100%;
+  font: inherit;
+}
+
+.content-filters__wide {
+  grid-column: 1 / -1;
+}
+
+.content-filters__error {
+  color: var(--color-danger);
+}
+
 .qu-preview {
   display: grid;
   gap: var(--space-4);
@@ -1396,7 +1455,8 @@
   .admin-stats,
   .admin-form-grid,
   .model-params__columns,
-  .sufler-policies__columns {
+  .sufler-policies__columns,
+  .content-filters__grid {
     grid-template-columns: 1fr;
   }
 

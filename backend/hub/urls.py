@@ -33,6 +33,7 @@ from hub.views import (
     qu_kb_documents,
     qu_policy,
     qu_preview,
+    assistant_content_filters,
     sufler_policies,
     dialog_scenarios,
     dialog_scenario_detail,
@@ -57,6 +58,11 @@ urlpatterns = [
         name="model_registry_ocr_model",
     ),
     path("sufler/policies/", sufler_policies, name="sufler_policies"),
+    path(
+        "assistant/content-filters/",
+        assistant_content_filters,
+        name="assistant_content_filters",
+    ),
     path("scenarios/", dialog_scenarios, name="dialog_scenarios"),
     path("scenarios/<str:code>/", dialog_scenario_detail, name="dialog_scenario_detail"),
     path(

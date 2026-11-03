@@ -31,6 +31,12 @@ LOGIN_FAILURE = "hub.authentication.login_failure"
 LOGOUT = "hub.authentication.logout"
 ACCESS_DENIED = "hub.authorization.access_denied"
 KB_SETTINGS_UPDATED = "hub.administration.kb_settings_updated"
+ASSISTANT_CONTENT_FILTER_UPDATED = (
+    "hub.administration.assistant_content_filter_updated"
+)
+ASSISTANT_CONTENT_FILTER_BLOCKED = (
+    "hub.data_security.assistant_content_filter_blocked"
+)
 WEBSITE_CRAWL_IGNORE_ROBOTS = "hub.administration.website_crawl_ignore_robots"
 AUDIT_WRITE_FAILURE = "hub.data.audit_write_failure"
 SIEM_DELIVERY_FAILURE = "hub.integrations.siem_delivery_failure"

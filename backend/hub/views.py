@@ -42,6 +42,12 @@ from assistant.sql_access import (
     list_accesses,
     update_access,
 )
+from hub.content_filters import (
+    ContentFilterError,
+    audit_content_filter_update,
+    replace_content_filters,
+    serialize_content_filters,
+)
 from hub.assistant_admin import (
     AssistantAdminError,
     create_assistant_kb,
@@ -443,6 +449,57 @@ def sufler_policies(request: HttpRequest) -> JsonResponse:
             status=400,
         )
     return JsonResponse(serialize_sufler_policy(instance))
+
+
+CONTENT_FILTER_ROLES = (
+    "software_administrator",
+    "llm_knowledge_base_administrator",
+    "ai_assistant_module_administrator",
+)
+
+
+def _parse_content_filter_body(request: HttpRequest) -> list[Mapping[str, Any]]:
+    try:
+        body = json.loads(request.body or b"{}")
+    except json.JSONDecodeError as exc:
+        raise ContentFilterError(
+            {"form": ["Тело запроса должно быть JSON."]}
+        ) from exc
+    if not isinstance(body, Mapping):
+        raise ContentFilterError({"form": ["Тело запроса должно быть объектом."]})
+    unknown = set(body) - {"items"}
+    if unknown:
+        raise ContentFilterError(
+            {"form": [f"Неизвестные поля: {', '.join(sorted(unknown))}."]}
+        )
+    items = body.get("items")
+    if not isinstance(items, list):
+        raise ContentFilterError({"items": ["Ожидается список категорий."]})
+    return items
+
+
+@require_http_methods(["GET", "PUT"])
+@roles_required(*CONTENT_FILTER_ROLES, api=True)
+def assistant_content_filters(request: HttpRequest) -> JsonResponse:
+    try:
+        if request.method == "PUT":
+            items = _parse_content_filter_body(request)
+            payload = replace_content_filters(
+                items,
+                username=request.user.get_username(),
+            )
+            audit_content_filter_update(
+                request=request,
+                codes=[str(item["code"]) for item in payload["items"]],
+            )
+        else:
+            payload = serialize_content_filters()
+    except ContentFilterError as exc:
+        return JsonResponse(
+            {"error": "validation_error", "details": exc.details},
+            status=400,
+        )
+    return JsonResponse(payload)
 
 
 @require_http_methods(["POST"])
