@@ -113,3 +113,5 @@ docs/runbooks/dev-contour-oktell-sufler.html
 docs/runbooks/dev-contour-oktell-sufler.docx
 docs/runbooks/dev-contour-oktell-sufler-2.docx
 docs/runbooks/*.png
+backend/services/embedding/wheels/
+*.whl

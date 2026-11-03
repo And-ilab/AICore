@@ -29,20 +29,30 @@ urlpatterns = [
         SpectacularAPIView.as_view(),
         name="schema",
     ),
-    path("", include("chat.urls")),
-]
-
-# Swagger / ReDoc — development only.
-if settings.DEBUG:
-    urlpatterns += [
-        path(
+    path(
             "api/docs/",
             SpectacularSwaggerView.as_view(url_name="schema"),
             name="swagger-ui",
         ),
-        path(
+    path(
             "api/redoc/",
             SpectacularRedocView.as_view(url_name="schema"),
             name="redoc",
         ),
-    ]
+    path("", include("chat.urls")),
+]
+
+# Swagger / ReDoc — development only.
+#if settings.DEBUG:
+#    urlpatterns += [
+#        path(
+#            "api/docs/",
+#            SpectacularSwaggerView.as_view(url_name="schema"),
+#            name="swagger-ui",
+#        ),
+#        path(
+#            "api/redoc/",
+#            SpectacularRedocView.as_view(url_name="schema"),
+#            name="redoc",
+#        ),
+#    ]

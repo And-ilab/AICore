@@ -22,7 +22,17 @@ ENV VITE_ALLOW_DEV_LOGIN=$VITE_ALLOW_DEV_LOGIN \
     VITE_SUFLER_DEMO=$VITE_SUFLER_DEMO
 
 COPY package.json package-lock.json ./
-RUN npm ci
+#RUN npm ci
+# Сначала чистим кэш, затем ставим пакеты без лишних проверок
+#ENV NODE_OPTIONS="--max-old-space-size=4096"
+#RUN npm cache clean --force && npm install --no-audit --no-fund
+ENV http_proxy=http://bb.asb
+ENV https_proxy=http://bb.asb
+RUN npm config set strict-ssl false
+
+# 3. Запускаем чистую установку
+RUN npm ping && npm ci --loglevel verbose
+#RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
 
