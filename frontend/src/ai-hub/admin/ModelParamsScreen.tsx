@@ -17,6 +17,7 @@ import {
   ModelParamsApiError,
   publicModelLabel,
   saveModelParams,
+  saveModelSelection,
   type ModelOption,
   type ModelParamsData,
   type ModelParamsPayload,
@@ -123,6 +124,28 @@ function editablePayload(data: ModelParamsData): ModelParamsPayload {
     rag: { ...data.rag },
     selection: selectionFrom(data),
   }
+}
+
+function numericPayload(form: ModelParamsPayload) {
+  return { generation: form.generation, rag: form.rag }
+}
+
+function saveErrorState(error: unknown): { message: string; details: FieldErrors } {
+  if (error instanceof ModelParamsApiError) {
+    if (isAuthErrorMessage(error.message)) {
+      return { message: formatLoadError(error), details: {} }
+    }
+    return {
+      message: 'Исправьте ошибки формы',
+      details: Object.fromEntries(
+        Object.entries(error.details).map(([field, values]) => [
+          field.replace('_threshold', ''),
+          values.join(' '),
+        ]),
+      ),
+    }
+  }
+  return { message: formatLoadError(error), details: {} }
 }
 
 function validate(
@@ -240,7 +263,7 @@ export const ModelParamsScreen = forwardRef<
   const [data, setData] = useState<ModelParamsData | null>(null)
   const [form, setForm] = useState<ModelParamsPayload | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving] = useState<null | 'params' | 'model'>(null)
   const [loadError, setLoadError] = useState('')
   const [serverErrors, setServerErrors] = useState<FieldErrors>({})
   const [message, setMessage] = useState('')
@@ -288,18 +311,23 @@ export const ModelParamsScreen = forwardRef<
     [data, form],
   )
   const errors = { ...serverErrors, ...clientErrors }
-  const dirty = Boolean(
-    data && form && JSON.stringify(form) !== JSON.stringify(editablePayload(data)),
+  const baseline = data ? editablePayload(data) : null
+  const paramsDirty = Boolean(
+    form && baseline && JSON.stringify(numericPayload(form)) !== JSON.stringify(numericPayload(baseline)),
+  )
+  const selectionDirty = Boolean(
+    form && baseline && JSON.stringify(form.selection ?? null) !== JSON.stringify(baseline.selection ?? null),
   )
   const valid = Boolean(form && data && Object.keys(errors).length === 0)
 
   useEffect(() => {
-    onStateChange({ dirty, valid, saving, message })
-  }, [dirty, message, onStateChange, saving, valid])
+    onStateChange({ dirty: paramsDirty, valid, saving: saving !== null, message })
+  }, [message, onStateChange, paramsDirty, saving, valid])
 
   const save = async (): Promise<boolean> => {
-    if (!form || !data || !canEdit || !valid) return false
-    setSaving(true)
+    if (!form || !data || !canEdit || !valid || !paramsDirty) return false
+    const pendingSelection = form.selection
+    setSaving('params')
     setServerErrors({})
     setMessage('')
     try {
@@ -307,30 +335,48 @@ export const ModelParamsScreen = forwardRef<
         () => saveModelParams(selectedProfile, form),
       )
       setData(saved)
-      setForm(editablePayload(saved))
+      setForm({
+        ...editablePayload(saved),
+        selection: pendingSelection ?? selectionFrom(saved),
+      })
       setMessage(`Сохранено · ревизия ${saved.revision}`)
       return true
     } catch (error) {
-      if (error instanceof ModelParamsApiError) {
-        if (isAuthErrorMessage(error.message)) {
-          setMessage(formatLoadError(error))
-        } else {
-          setServerErrors(
-            Object.fromEntries(
-              Object.entries(error.details).map(([field, values]) => [
-                field.replace('_threshold', ''),
-                values.join(' '),
-              ]),
-            ),
-          )
-          setMessage('Исправьте ошибки формы')
-        }
-      } else {
-        setMessage(formatLoadError(error))
-      }
+      const failure = saveErrorState(error)
+      setServerErrors(failure.details)
+      setMessage(failure.message)
       return false
     } finally {
-      setSaving(false)
+      setSaving(null)
+    }
+  }
+
+  const saveModel = async (): Promise<boolean> => {
+    const selection = form?.selection
+    if (!selection || !form || !data || !canEdit || !selectionDirty) return false
+    const pendingNumbers = numericPayload(form)
+    setSaving('model')
+    setServerErrors({})
+    setMessage('')
+    try {
+      const saved = await withDevSession(
+        () => saveModelSelection(selectedProfile, selection),
+      )
+      setData(saved)
+      setForm({
+        ...editablePayload(saved),
+        generation: pendingNumbers.generation,
+        rag: pendingNumbers.rag,
+      })
+      setMessage('Модель сохранена')
+      return true
+    } catch (error) {
+      const failure = saveErrorState(error)
+      setServerErrors(failure.details)
+      setMessage(failure.message)
+      return false
+    } finally {
+      setSaving(null)
     }
   }
 
@@ -662,6 +708,14 @@ export const ModelParamsScreen = forwardRef<
               onChange={(modelId) => setSelection('llm', modelId)}
             />
           )}
+          <Button
+            type="button"
+            disabled={!canEdit || saving !== null || !selectionDirty}
+            onClick={() => void saveModel()}
+            data-testid="model-params-save-model"
+          >
+            {saving === 'model' ? 'Сохранение…' : 'Сохранить модель'}
+          </Button>
         </section>
       </div>
 
@@ -673,7 +727,7 @@ export const ModelParamsScreen = forwardRef<
         <Button
           type="button"
           variant="secondary"
-          disabled={!canEdit || saving}
+          disabled={!canEdit || saving !== null}
           onClick={() => void resetToPlatform()}
           data-testid="model-params-reset-platform"
         >
@@ -681,11 +735,11 @@ export const ModelParamsScreen = forwardRef<
         </Button>
         <Button
           type="button"
-          disabled={!canEdit || saving || !dirty || !valid}
+          disabled={!canEdit || saving !== null || !paramsDirty || !valid}
           onClick={() => void save()}
           data-testid="model-params-save"
         >
-          {saving ? 'Сохранение…' : 'Сохранить'}
+          {saving === 'params' ? 'Сохранение…' : 'Сохранить'}
         </Button>
         <Button
           type="button"

@@ -24,6 +24,7 @@ from hub.models import ModelRegistrySettings  # noqa: E402
 
 class ModelRegistryAdminIntegrationTest(TestCase):
     url = "/api/admin/model-registry/model-params/"
+    selection_url = "/api/admin/model-registry/model-selection/"
 
     def user_for_role(self, role_code):
         role = ROLES_BY_CODE[role_code]
@@ -178,14 +179,22 @@ class ModelRegistryAdminIntegrationTest(TestCase):
         payload = self.payload(
             generation={"temperature": 0.2, "response_chars_max": 400}
         )
-        payload["selection"] = {
-            "llm": llm_id,
-            "speech": speech_id,
-            "answer": answer_id,
-        }
-        saved = client.put(
+        saved_params = client.put(
             f"{self.url}?profile=sufler_cc",
             data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(saved_params.status_code, 200, saved_params.content)
+        revision = saved_params.json()["revision"]
+        saved = client.put(
+            f"{self.selection_url}?profile=sufler_cc",
+            data=json.dumps({
+                "selection": {
+                    "llm": llm_id,
+                    "speech": speech_id,
+                    "answer": answer_id,
+                },
+            }),
             content_type="application/json",
         )
         self.assertEqual(saved.status_code, 200, saved.content)
@@ -194,20 +203,57 @@ class ModelRegistryAdminIntegrationTest(TestCase):
         self.assertEqual(stored["speech"]["selected"], speech_id)
         self.assertEqual(stored["answer"]["selected"], answer_id)
         self.assertNotIn("deepseek", stored["llm"]["options"][0]["label"].lower())
+        self.assertEqual(saved.json()["revision"], revision)
+        self.assertEqual(saved.json()["generation"]["temperature"], 0.2)
 
     def test_assistant_rejects_speech_selection(self):
         client = Client()
         client.force_login(
             self.user_for_role("llm_knowledge_base_administrator")
         )
-        payload = self.payload()
-        payload["selection"] = {"speech": "vosk-model-small-ru-0.22"}
+        saved = client.put(
+            f"{self.url}?profile=assistant_bank",
+            data=json.dumps(self.payload()),
+            content_type="application/json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.content)
+        revision = saved.json()["revision"]
+        temperature = saved.json()["generation"]["temperature"]
+        response = client.put(
+            f"{self.selection_url}?profile=assistant_bank",
+            data=json.dumps({
+                "selection": {"speech": "vosk-model-small-ru-0.22"},
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        stored = ModelRegistrySettings.objects.get(profile="assistant_bank")
+        self.assertEqual(stored.revision, revision)
+        self.assertEqual(stored.temperature, temperature)
+
+    def test_params_put_rejects_embedded_selection(self):
+        client = Client()
+        client.force_login(
+            self.user_for_role("llm_knowledge_base_administrator")
+        )
+        saved = client.put(
+            f"{self.url}?profile=assistant_bank",
+            data=json.dumps(self.payload()),
+            content_type="application/json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.content)
+        revision = saved.json()["revision"]
+        payload = self.payload(generation={"temperature": 0.55})
+        payload["selection"] = {"llm": "qwen2.5-1.5b-instruct"}
         response = client.put(
             f"{self.url}?profile=assistant_bank",
             data=json.dumps(payload),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
+        stored = ModelRegistrySettings.objects.get(profile="assistant_bank")
+        self.assertEqual(stored.revision, revision)
+        self.assertEqual(stored.temperature, 0.4)
 
     def test_ocr_model_choice_roundtrip(self):
         client = Client()

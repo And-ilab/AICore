@@ -21,6 +21,10 @@ import { KbAdminScreen } from './KbAdminScreen'
 import { PromptsAssistantScreen } from './PromptsAssistantScreen'
 import { CapabilitiesScreen } from './CapabilitiesScreen'
 import { AssistantToolsScreen } from './AssistantToolsScreen'
+import {
+  ContentFiltersScreen,
+  type ContentFiltersScreenHandle,
+} from './ContentFiltersScreen'
 import { DocTypesScreen } from './DocTypesScreen'
 import { OcrDocumentsPanel } from '../ocr/OcrDocumentsPanel'
 import { CcReportsScreen } from '../reports/CcReportsScreen'
@@ -120,6 +124,12 @@ const SCREEN_COPY: Record<AdminScreen, ScreenCopy> = {
     subtitle: 'Библиотека бланков банка (Word/PDF/Excel/PPT/BPMN), RPA и SQL.',
     status: 'Шаблоны UC-ASS-05',
     cards: [['RPA', '—', 'Следующий этап'], ['Шаблоны', 'CRUD', 'Активные бланки'], ['SQL', '—', 'Только чтение']],
+  },
+  content_filters: {
+    title: 'Фильтры контента',
+    subtitle: 'Темы, которые ассистент не обсуждает: политика, религия и другие категории.',
+    status: 'Фильтры ассистента',
+    cards: [['Политика', 'Словарь', 'Исключения банка'], ['Религия', 'Словарь', 'Отказ без модели'], ['Промпт', 'Темы', 'Если словарь молчит']],
   },
   monitoring: {
     title: 'Мониторинг ассистента',
@@ -281,10 +291,16 @@ export function AiHubAdminApp({
   }
   const modelParamsRef = useRef<ModelParamsScreenHandle>(null)
   const suflerPoliciesRef = useRef<SuflerPoliciesScreenHandle>(null)
+  const contentFiltersRef = useRef<ContentFiltersScreenHandle>(null)
   const [modelFormState, setModelFormState] = useState(emptyFormState)
   const [policiesFormState, setPoliciesFormState] = useState(emptyFormState)
+  const [filtersFormState, setFiltersFormState] = useState(emptyFormState)
   const handleModelFormState = useCallback(
     (state: typeof modelFormState) => setModelFormState(state),
+    [],
+  )
+  const handleFiltersFormState = useCallback(
+    (state: typeof filtersFormState) => setFiltersFormState(state),
     [],
   )
   const handlePoliciesFormState = useCallback(
@@ -570,6 +586,12 @@ export function AiHubAdminApp({
               canEdit={canEdit}
               onStateChange={handlePoliciesFormState}
             />
+          ) : screen === 'content_filters' ? (
+            <ContentFiltersScreen
+              ref={contentFiltersRef}
+              canEdit={canEdit}
+              onStateChange={handleFiltersFormState}
+            />
           ) : screen === 'qu_admin' ? (
             <QuPreviewScreen key="qu_admin" canEdit={canEdit} />
           ) : screen === 'sufler_training' ? (
@@ -692,7 +714,9 @@ export function AiHubAdminApp({
               ? modelFormState.message || (modelFormState.dirty ? 'Есть несохранённые изменения' : 'Настройки синхронизированы')
               : screen === 'sufler_policies'
                 ? policiesFormState.message || (policiesFormState.dirty ? 'Есть несохранённые изменения' : 'Настройки синхронизированы')
-                : saved ? 'Изменения сохранены' : 'Есть несохранённые изменения'}
+                : screen === 'content_filters'
+                  ? filtersFormState.message || (filtersFormState.dirty ? 'Есть несохранённые изменения' : 'Настройки синхронизированы')
+                  : saved ? 'Изменения сохранены' : 'Есть несохранённые изменения'}
           </span>
           <div>
             <Button
@@ -701,10 +725,12 @@ export function AiHubAdminApp({
                 !canEdit
                 || (screen === 'model_params' && !modelFormState.dirty)
                 || (screen === 'sufler_policies' && !policiesFormState.dirty)
+                || (screen === 'content_filters' && !filtersFormState.dirty)
               }
               onClick={() => {
                 if (screen === 'model_params') modelParamsRef.current?.reset()
                 else if (screen === 'sufler_policies') suflerPoliciesRef.current?.reset()
+                else if (screen === 'content_filters') contentFiltersRef.current?.reset()
                 else setSaved(false)
               }}
             >
@@ -729,12 +755,22 @@ export function AiHubAdminApp({
                     || policiesFormState.saving
                   )
                 )
+                || (
+                  screen === 'content_filters'
+                  && (
+                    !filtersFormState.dirty
+                    || !filtersFormState.valid
+                    || filtersFormState.saving
+                  )
+                )
               }
               onClick={() => {
                 if (screen === 'model_params') {
                   void modelParamsRef.current?.save()
                 } else if (screen === 'sufler_policies') {
                   void suflerPoliciesRef.current?.save()
+                } else if (screen === 'content_filters') {
+                  void contentFiltersRef.current?.save()
                 } else {
                   setSaved(true)
                 }
@@ -742,6 +778,7 @@ export function AiHubAdminApp({
             >
               {(modelFormState.saving && screen === 'model_params')
                 || (policiesFormState.saving && screen === 'sufler_policies')
+                || (filtersFormState.saving && screen === 'content_filters')
                 ? 'Сохранение…'
                 : 'Сохранить'}
             </Button>
