@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Mapping, Protocol
@@ -11,6 +12,8 @@ from urllib.parse import urlencode, urljoin
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 class BitrixClientError(RuntimeError):
@@ -43,8 +46,14 @@ class MockBitrixChangesClient:
     def fetch_changes(self, since: str, *, limit: int = 100) -> ChangesPage:
         page = self.pages.get(since) or self.default_page
         if page is None:
-            return ChangesPage(cursor=since or _utcnow_iso(), events=[])
-        return ChangesPage(cursor=page.cursor, events=list(page.events)[:limit])
+            page = ChangesPage(cursor=since or _utcnow_iso(), events=[])
+        else:
+            page = ChangesPage(
+                cursor=page.cursor,
+                events=list(page.events)[:limit],
+            )
+        _log_bitrix_response(mode="mock", status=200, body=page)
+        return page
 
 
 @dataclass
@@ -74,20 +83,34 @@ class HttpBitrixChangesClient:
             },
             method="GET",
         )
+        status: int | None = None
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
+                status = getattr(response, "status", None)
                 raw = response.read()
         except HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
+            logger.error(
+                "bitrix_response mode=http status=%s body=%s",
+                exc.code,
+                body,
+            )
             raise BitrixClientError(
                 f"Bitrix changes HTTP {exc.code}: {body[:300]}"
             ) from exc
         except URLError as exc:
+            logger.exception("bitrix_response_failed mode=http")
             raise BitrixClientError(f"Bitrix changes unreachable: {exc}") from exc
 
+        decoded = raw.decode("utf-8", errors="replace")
         try:
-            payload = json.loads(raw.decode("utf-8"))
+            payload = json.loads(decoded)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            logger.error(
+                "bitrix_response mode=http status=%s body=%s",
+                status,
+                decoded,
+            )
             raise BitrixClientError("Bitrix changes returned invalid JSON") from exc
         if not isinstance(payload, Mapping):
             raise BitrixClientError("Bitrix changes root must be an object")
@@ -97,7 +120,22 @@ class HttpBitrixChangesClient:
         if not isinstance(events_raw, list):
             raise BitrixClientError("Bitrix changes.events must be a list")
         events = [dict(item) for item in events_raw if isinstance(item, Mapping)]
-        return ChangesPage(cursor=cursor, events=events[:limit])
+        page = ChangesPage(cursor=cursor, events=events[:limit])
+        _log_bitrix_response(mode="http", status=status, body=payload)
+        return page
+
+
+def _log_bitrix_response(*, mode: str, status: Any, body: Any) -> None:
+    if isinstance(body, ChangesPage):
+        payload = {"cursor": body.cursor, "events": body.events}
+    else:
+        payload = body
+    logger.info(
+        "bitrix_response mode=%s status=%s body=%s",
+        mode,
+        status,
+        json.dumps(payload, ensure_ascii=False, default=str),
+    )
 
 
 _MOCK_CLIENT = MockBitrixChangesClient()

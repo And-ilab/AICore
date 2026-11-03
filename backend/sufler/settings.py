@@ -16,6 +16,8 @@ from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 
+from sufler.logging_config import build_logging
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -64,6 +66,8 @@ SECRET_KEY = os.getenv(
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() in {"1", "true", "yes"}
+
+LOGGING = build_logging(base_dir=BASE_DIR, debug=DEBUG)
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -213,6 +217,11 @@ AUTH_MODE = resolve_auth_backend(
 )
 # Canonical name after normalize (ldaps replaces legacy "ldap").
 AUTH_BACKEND = AUTH_MODE
+# Kerberos Negotiate. Off until the bank provides a hostname, SPN and keytab.
+AUTH_SSO_NEGOTIATE = os.getenv(
+    "AUTH_SSO_NEGOTIATE",
+    "false",
+).lower() in {"1", "true", "yes"}
 AUTH_MOCK_LDAP_USERS_JSON = os.getenv("AUTH_MOCK_LDAP_USERS_JSON", "")
 AUTH_MOCK_LDAP_DEFAULT_PASSWORD = os.getenv(
     "AUTH_MOCK_LDAP_DEFAULT_PASSWORD",
@@ -476,6 +485,9 @@ CELERY_RESULT_BACKEND = os.getenv(
 )
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+# Leave Django's dictConfig in place. The default hijack removes root
+# handlers, so the worker's log files would stay empty.
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://localhost:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ROOT_USER", "")

@@ -34,10 +34,11 @@ RUN apt-get update \
         ffmpeg \
         fonts-dejavu-core \
         libgomp1 \
-        fonts-liberation \ 
+        fonts-liberation \
+        libkrb5-3 \
     && if [ "$LDAP_ENABLE" = "1" ]; then \ 
          apt-get install -y --no-install-recommends \ 
-           gcc libldap2-dev libsasl2-dev libssl-dev; \ 
+           gcc libldap2-dev libsasl2-dev libssl-dev libkrb5-dev; \ 
        fi \
     && apt-get install -y --no-install-recommends unrar-free unar || true \
     && rm -rf /var/lib/apt/lists/*

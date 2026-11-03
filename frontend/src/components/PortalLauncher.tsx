@@ -30,6 +30,10 @@ export type { LauncherModule }
 export interface PortalLauncherProps {
   roles: readonly string[]
   username?: string | null
+  /** FIO from the AD session. Empty until /api/auth/me/ confirms the user. */
+  displayName?: string | null
+  firstName?: string | null
+  lastName?: string | null
   roleLabel?: string | null
   menuVariant?: 'card' | 'compact'
   initialMenuOpen?: boolean
@@ -338,6 +342,9 @@ function AssistantWindowContent({
 
 function PortalBackdrop({
   children,
+  displayName,
+  firstName,
+  lastName,
   roleLabel,
   onChangeRole,
   settingsEntry,
@@ -345,6 +352,9 @@ function PortalBackdrop({
   onToggleColorTheme,
 }: {
   children: ReactNode
+  displayName?: string | null
+  firstName?: string | null
+  lastName?: string | null
   roleLabel?: string | null
   onChangeRole?: () => void
   /** ≡ on portal chrome for roles without S/A windows (analysts / OCR admin). */
@@ -352,6 +362,10 @@ function PortalBackdrop({
   colorTheme: AiHubColorTheme
   onToggleColorTheme: () => void
 }) {
+  const cornerName = (displayName || '').trim()
+  const givenName = (firstName || '').trim()
+  const familyName = (lastName || '').trim()
+  const greetingName = givenName && familyName ? givenName : ''
   const colorThemeTitle =
     colorTheme === 'classic'
       ? 'Переключить на цветовую схему онлайн-чата'
@@ -408,14 +422,14 @@ function PortalBackdrop({
               />
             </svg>
           </button>
-          <span>Алексей Морозов</span>
+          {cornerName ? <span>{cornerName}</span> : null}
         </div>
       </header>
       <main className="portal-launcher__portal-content">
         <p className="portal-launcher__portal-eyebrow">
           Внутренний корпоративный портал банка · компактная кнопка AI, по клику выезжают иконки модулей
         </p>
-        <h1>Добрый день, Алексей</h1>
+        <h1>{greetingName ? `Добрый день, ${greetingName}` : 'Добрый день'}</h1>
         <div className="portal-launcher__portal-grid" aria-hidden="true">
           <Card><span>Мои задачи</span><strong>8</strong></Card>
           <Card><span>Новые заявки</span><strong>3</strong></Card>
@@ -430,6 +444,9 @@ function PortalBackdrop({
 export function PortalLauncher({
   roles,
   username = null,
+  displayName = null,
+  firstName = null,
+  lastName = null,
   roleLabel = null,
   menuVariant = 'card',
   initialMenuOpen = false,
@@ -481,6 +498,9 @@ export function PortalLauncher({
 
   return (
     <PortalBackdrop
+      displayName={displayName}
+      firstName={firstName}
+      lastName={lastName}
       roleLabel={roleLabel}
       onChangeRole={onChangeRole}
       settingsEntry={portalSettingsEntry}

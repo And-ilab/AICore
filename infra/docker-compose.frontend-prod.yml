@@ -2,7 +2,8 @@
 # Use on the bank TEST/PROD VM so the UI does not white-screen on 504 from Vite.
 #
 # Applied by default from local-inference/up-cpu.sh (FRONTEND_MODE=prod).
-# Bake mock_ldap auto-login for TEST (same password as AUTH_MOCK_LDAP_DEFAULT_PASSWORD).
+# AD / bank image: leave VITE_ALLOW_DEV_LOGIN and VITE_SUFLER_DEMO empty.
+# Set them only for a mock_ldap demo build (password = AUTH_MOCK_LDAP_DEFAULT_PASSWORD).
 name: sufler
 
 services:
@@ -11,13 +12,13 @@ services:
       context: ../frontend
       dockerfile: Dockerfile.prod
       args:
-        VITE_ALLOW_DEV_LOGIN: ${VITE_ALLOW_DEV_LOGIN:-1}
-        VITE_DEV_AUTH_USER: ${VITE_DEV_AUTH_USER:-dev-role-01}
-        # Must match backend AUTH_MOCK_LDAP_DEFAULT_PASSWORD (infra/.env).
-        VITE_DEV_AUTH_PASSWORD: ${AUTH_MOCK_LDAP_DEFAULT_PASSWORD:-replace-with-dev-only-password}
+        VITE_ALLOW_DEV_LOGIN: ${VITE_ALLOW_DEV_LOGIN:-}
+        VITE_DEV_AUTH_USER: ${VITE_DEV_AUTH_USER:-}
+        # Must match backend AUTH_MOCK_LDAP_DEFAULT_PASSWORD when mock auto-login is on.
+        VITE_DEV_AUTH_PASSWORD: ${VITE_DEV_AUTH_PASSWORD:-}
         VITE_DEV_RBAC_ROLES: ${VITE_DEV_RBAC_ROLES:-}
-        # TEST/demo: simulator, supervisor demo queue, multi-window links (baked at build).
-        VITE_SUFLER_DEMO: ${VITE_SUFLER_DEMO:-1}
+        # Demo simulator and role personas. Empty for an AD build.
+        VITE_SUFLER_DEMO: ${VITE_SUFLER_DEMO:-}
     image: ${FRONTEND_IMAGE:-sufler-frontend:local}
     restart: unless-stopped
     # Clear Vite-only settings from docker-compose.yml (Compose merge reset).

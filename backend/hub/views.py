@@ -42,6 +42,12 @@ from assistant.sql_access import (
     list_accesses,
     update_access,
 )
+from hub.content_filters import (
+    ContentFilterError,
+    audit_content_filter_update,
+    replace_content_filters,
+    serialize_content_filters,
+)
 from hub.assistant_admin import (
     AssistantAdminError,
     create_assistant_kb,
@@ -157,9 +163,7 @@ def _check_profile_access(
     )
 
 
-def _parse_update_payload(
-    request: HttpRequest,
-) -> tuple[dict[str, Any], dict[str, str]]:
+def _parse_update_payload(request: HttpRequest) -> dict[str, Any]:
     try:
         body = json.loads(request.body or b"{}")
     except json.JSONDecodeError as exc:
@@ -170,7 +174,13 @@ def _parse_update_payload(
     rag = body.get("rag", {})
     if not isinstance(generation, Mapping) or not isinstance(rag, Mapping):
         raise ValueError("generation and rag must be JSON objects")
-    allowed_root = {"generation", "rag", "selection"}
+    # Generation and the chosen model are separate writes. Keeping selection
+    # in this body used to save the numbers and then return 400.
+    allowed_root = {"generation", "rag"}
+    if "selection" in body:
+        raise ValueError(
+            "selection is stored by PUT /api/admin/model-registry/model-selection/"
+        )
     unknown_root = set(body) - allowed_root
     if unknown_root:
         raise ValueError(
@@ -221,25 +231,41 @@ def _parse_update_payload(
     }
     if "preset" in generation:
         flat["preset"] = generation.get("preset")
-    selection = body.get("selection") or {}
+    return flat
+
+
+def _parse_selection_payload(request: HttpRequest) -> dict[str, str]:
+    try:
+        body = json.loads(request.body or b"{}")
+    except json.JSONDecodeError as exc:
+        raise ValueError("Request body must be valid JSON") from exc
+    if not isinstance(body, Mapping):
+        raise ValueError("Request body must be a JSON object")
+    unknown_root = set(body) - {"selection"}
+    if unknown_root:
+        raise ValueError(
+            f"Unknown sections: {', '.join(sorted(unknown_root))}"
+        )
+    selection = body.get("selection")
+    if not isinstance(selection, Mapping):
+        raise ValueError("selection must be a JSON object")
+    unknown_selection = set(selection) - {"llm", "speech", "answer"}
+    if unknown_selection:
+        raise ValueError(
+            "selection has unknown fields: "
+            f"{', '.join(sorted(unknown_selection))}"
+        )
     parsed_selection: dict[str, str] = {}
-    if selection:
-        if not isinstance(selection, Mapping):
-            raise ValueError("selection must be a JSON object")
-        unknown_selection = set(selection) - {"llm", "speech", "answer"}
-        if unknown_selection:
-            raise ValueError(
-                "selection has unknown fields: "
-                f"{', '.join(sorted(unknown_selection))}"
-            )
-        for key in ("llm", "speech", "answer"):
-            if key not in selection or selection[key] in (None, ""):
-                continue
-            value = selection[key]
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"selection.{key} must be a non-empty string")
-            parsed_selection[key] = value.strip()
-    return flat, parsed_selection
+    for key in ("llm", "speech", "answer"):
+        if key not in selection or selection[key] in (None, ""):
+            continue
+        value = selection[key]
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"selection.{key} must be a non-empty string")
+        parsed_selection[key] = value.strip()
+    if not parsed_selection:
+        raise ValueError("selection must include at least one model")
+    return parsed_selection
 
 
 @require_http_methods(["GET", "PUT"])
@@ -258,18 +284,12 @@ def model_params(request: HttpRequest) -> JsonResponse:
 
     try:
         if request.method == "PUT":
-            payload, selection = _parse_update_payload(request)
+            payload = _parse_update_payload(request)
             instance = update_model_settings(
                 profile,
                 payload,
                 username=request.user.get_username(),
             )
-            if selection:
-                apply_profile_selection(
-                    profile,
-                    selection,
-                    username=request.user.get_username(),
-                )
             emit_kb_change(
                 request=request,
                 profile=profile,
@@ -278,6 +298,44 @@ def model_params(request: HttpRequest) -> JsonResponse:
             )
         else:
             instance = get_model_settings(profile)
+    except ValidationError as exc:
+        details = getattr(exc, "message_dict", {"form": exc.messages})
+        return JsonResponse(
+            {"error": "validation_error", "details": details},
+            status=400,
+        )
+    except (TypeError, ValueError) as exc:
+        return JsonResponse(
+            {"error": "validation_error", "details": {"form": [str(exc)]}},
+            status=400,
+        )
+
+    return JsonResponse(serialize_model_settings(instance))
+
+
+@require_http_methods(["PUT"])
+@roles_required(*ADMIN_ROLES, api=True)
+def model_selection(request: HttpRequest) -> JsonResponse:
+    """Store the chosen model without writing generation or RAG settings."""
+    try:
+        profile = _profile(request)
+    except ValueError as exc:
+        return JsonResponse(
+            {"error": "validation_error", "details": {"profile": [str(exc)]}},
+            status=400,
+        )
+    denied = _check_profile_access(request, profile)
+    if denied is not None:
+        return denied
+
+    try:
+        selection = _parse_selection_payload(request)
+        apply_profile_selection(
+            profile,
+            selection,
+            username=request.user.get_username(),
+        )
+        instance = get_model_settings(profile)
     except ValidationError as exc:
         details = getattr(exc, "message_dict", {"form": exc.messages})
         return JsonResponse(
@@ -391,6 +449,57 @@ def sufler_policies(request: HttpRequest) -> JsonResponse:
             status=400,
         )
     return JsonResponse(serialize_sufler_policy(instance))
+
+
+CONTENT_FILTER_ROLES = (
+    "software_administrator",
+    "llm_knowledge_base_administrator",
+    "ai_assistant_module_administrator",
+)
+
+
+def _parse_content_filter_body(request: HttpRequest) -> list[Mapping[str, Any]]:
+    try:
+        body = json.loads(request.body or b"{}")
+    except json.JSONDecodeError as exc:
+        raise ContentFilterError(
+            {"form": ["Тело запроса должно быть JSON."]}
+        ) from exc
+    if not isinstance(body, Mapping):
+        raise ContentFilterError({"form": ["Тело запроса должно быть объектом."]})
+    unknown = set(body) - {"items"}
+    if unknown:
+        raise ContentFilterError(
+            {"form": [f"Неизвестные поля: {', '.join(sorted(unknown))}."]}
+        )
+    items = body.get("items")
+    if not isinstance(items, list):
+        raise ContentFilterError({"items": ["Ожидается список категорий."]})
+    return items
+
+
+@require_http_methods(["GET", "PUT"])
+@roles_required(*CONTENT_FILTER_ROLES, api=True)
+def assistant_content_filters(request: HttpRequest) -> JsonResponse:
+    try:
+        if request.method == "PUT":
+            items = _parse_content_filter_body(request)
+            payload = replace_content_filters(
+                items,
+                username=request.user.get_username(),
+            )
+            audit_content_filter_update(
+                request=request,
+                codes=[str(item["code"]) for item in payload["items"]],
+            )
+        else:
+            payload = serialize_content_filters()
+    except ContentFilterError as exc:
+        return JsonResponse(
+            {"error": "validation_error", "details": exc.details},
+            status=400,
+        )
+    return JsonResponse(payload)
 
 
 @require_http_methods(["POST"])
