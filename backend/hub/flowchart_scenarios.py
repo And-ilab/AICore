@@ -1415,3 +1415,7 @@ FLOW_SCENARIOS: list[dict[str, Any]] = [
         ],
     ),
 ]
+
+from hub.flowchart_scenarios_extra import EXTRA_FLOW_SCENARIOS
+
+FLOW_SCENARIOS.extend(EXTRA_FLOW_SCENARIOS)
