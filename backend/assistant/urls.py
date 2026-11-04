@@ -5,6 +5,7 @@ from assistant.views import (
     assistant_attachment_ocr,
     assistant_chat,
     assistant_content_from_prompt,
+    assistant_feedback,
     assistant_doc_template_generate,
     assistant_doc_templates,
     assistant_rpa_launch,
@@ -26,6 +27,7 @@ from assistant.views import (
 
 urlpatterns = [
     path("chat", assistant_chat, name="assistant_chat"),
+    path("feedback/", assistant_feedback, name="assistant_feedback"),
     path(
         "attachments/extract",
         assistant_attachment_extract,

@@ -14,6 +14,7 @@ export interface QuExample {
   relevance_percent: number | null
   operator_name: string
   channel: string
+  user_mark?: string
   admin_comment: string
   created_by: string
   reviewed_by: string

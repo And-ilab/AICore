@@ -9,6 +9,7 @@ import {
   looksLikeContentPrompt,
 } from './api/docTemplates'
 import { streamAssistantChat, streamDemoChat } from './api/chatStream'
+import { submitAssistantFeedback } from './api/feedback'
 import { compactChatText } from './compactChatText'
 import { finishLastSentence } from './finishLastSentence'
 import {
@@ -28,6 +29,7 @@ import {
   type AssistantGeneratedDraft,
   type AssistantMessage,
   type AssistantOcrResult,
+  type AssistantSource,
   type AssistantToolState,
   type FeedbackKind,
   type ToolId,
@@ -85,6 +87,13 @@ function uid(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
 }
 
+function bestSource(sources: AssistantSource[] | undefined): AssistantSource | null {
+  if (!sources?.length) return null
+  return sources.reduce((best, item) =>
+    item.relevance_percent > best.relevance_percent ? item : best,
+  )
+}
+
 export interface UseAssistantChatOptions {
   demoMode?: boolean
   initialMessages?: AssistantMessage[]
@@ -126,8 +135,10 @@ export function useAssistantChat({
   const [tools, setTools] = useState<AssistantToolState[]>(DEFAULT_TOOLS)
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState('')
+  const [feedbackError, setFeedbackError] = useState<{ messageId: string; text: string } | null>(null)
   const [toolsOpen, setToolsOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  const feedbackLock = useRef(new Set<string>())
   const messagesRef = useRef(messages)
   messagesRef.current = messages
 
@@ -152,14 +163,68 @@ export function useAssistantChat({
   }, [])
 
   const setFeedback = useCallback((messageId: string, feedback: FeedbackKind) => {
-    setMessages((current) =>
-      current.map((item) =>
-        item.id === messageId && item.role === 'assistant' && !item.feedback
-          ? { ...item, feedback }
-          : item,
-      ),
+    const current = messagesRef.current
+    const index = current.findIndex(
+      (item) => item.id === messageId && item.role === 'assistant' && !item.feedback,
     )
-  }, [])
+    if (index < 0 || feedbackLock.current.has(messageId)) return
+    const apply = () => {
+      setMessages((items) =>
+        items.map((item) =>
+          item.id === messageId && item.role === 'assistant' && !item.feedback
+            ? { ...item, feedback }
+            : item,
+        ),
+      )
+    }
+    if (demoMode) {
+      apply()
+      return
+    }
+    const message = current[index]
+    let question = ''
+    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+      if (current[cursor].role === 'user') {
+        question = current[cursor].content
+        break
+      }
+    }
+    const source = bestSource(message.sources)
+    const articleRaw = source?.article_id
+    const articleId =
+      typeof articleRaw === 'number'
+        ? articleRaw
+        : typeof articleRaw === 'string' && /^\d+$/.test(articleRaw)
+          ? Number(articleRaw)
+          : null
+    feedbackLock.current.add(messageId)
+    setFeedbackError(null)
+    void submitAssistantFeedback({
+      messageId,
+      sessionId,
+      choice: feedback,
+      question,
+      answer: message.content,
+      relevancePercent: source ? source.relevance_percent : null,
+      articleId,
+      articleTitle: source?.title || '',
+    })
+      .then(() => {
+        apply()
+        setFeedbackError(null)
+      })
+      .catch((requestError: unknown) => {
+        setFeedbackError({
+          messageId,
+          text: requestError instanceof Error
+            ? requestError.message
+            : 'Не удалось сохранить оценку',
+        })
+      })
+      .finally(() => {
+        feedbackLock.current.delete(messageId)
+      })
+  }, [demoMode, sessionId])
 
   const runTool = useCallback((toolId: ToolId) => {
     setTools((current) =>
@@ -655,6 +720,7 @@ export function useAssistantChat({
     tools,
     streaming,
     error,
+    feedbackError,
     toolsOpen,
     setToolsOpen,
     sendMessage,

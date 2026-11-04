@@ -41,6 +41,7 @@ function sourceLabel(source: string): string {
 }
 
 function channelLabel(channel: string): string {
+  if (channel === 'assistant') return 'Ассистент'
   if (channel === 'telephony' || channel === 'phone') return 'Телефония'
   if (channel === 'chat' || channel === 'online_chat' || channel === 'widget') return 'Онлайн-чат'
   return channel || '—'
@@ -379,7 +380,10 @@ function ModerationTab({
               <div>
                 <h2>{item.question}</h2>
                 <p>
-                  {sourceLabel(item.source)} · {channelLabel(item.channel)} · {item.operator_name || 'оператор не указан'}
+                  {sourceLabel(item.source)} · {channelLabel(item.channel)}
+                  {item.user_mark ? ` · ${item.user_mark}` : ''}
+                  {' · '}
+                  {item.operator_name || 'оператор не указан'}
                   {item.relevance_percent != null ? ` · ${item.relevance_percent}%` : ''}
                 </p>
               </div>

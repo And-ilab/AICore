@@ -530,6 +530,13 @@
   font-weight: 600;
 }
 
+.asst-feedback__error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: .75rem;
+  color: var(--color-danger);
+}
+
 .asst-streaming {
   display: flex;
   align-items: center;

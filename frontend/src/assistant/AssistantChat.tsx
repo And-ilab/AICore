@@ -188,9 +188,11 @@ function kbSummary(
 function FeedbackBar({
   message,
   onFeedback,
+  error,
 }: {
   message: AssistantMessage
   onFeedback: (id: string, kind: FeedbackKind) => void
+  error?: string
 }) {
   if (message.role !== 'assistant' || message.pending) return null
   if (message.feedback) {
@@ -223,6 +225,11 @@ function FeedbackBar({
           </Button>
         )
       })}
+      {error ? (
+        <p className="asst-feedback__error" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -545,6 +552,7 @@ function MessageLenta({
   streaming,
   readOnly = false,
   onFeedback,
+  feedbackError,
   onExpand,
   onStop,
   onDraftChange,
@@ -553,6 +561,7 @@ function MessageLenta({
   streaming: boolean
   readOnly?: boolean
   onFeedback: (id: string, kind: FeedbackKind) => void
+  feedbackError?: { messageId: string; text: string } | null
   onExpand: (id: string) => void
   onStop: () => void
   onDraftChange: (id: string, text: string) => void
@@ -683,10 +692,18 @@ function MessageLenta({
                       Скачать транскрипт
                     </Button>
                   ))}
-                  <FeedbackBar message={message} onFeedback={onFeedback} />
+                  <FeedbackBar
+                    message={message}
+                    onFeedback={onFeedback}
+                    error={feedbackError?.messageId === message.id ? feedbackError.text : ''}
+                  />
                 </div>
               ) : !readOnly ? (
-                <FeedbackBar message={message} onFeedback={onFeedback} />
+                <FeedbackBar
+                  message={message}
+                  onFeedback={onFeedback}
+                  error={feedbackError?.messageId === message.id ? feedbackError.text : ''}
+                />
               ) : null}
             </Card>
           )}
@@ -1825,6 +1842,7 @@ export function AssistantChat({
     tools,
     streaming,
     error,
+    feedbackError,
     toolsOpen,
     setToolsOpen,
     sendMessage,
@@ -2483,6 +2501,7 @@ export function AssistantChat({
         streaming={streaming}
         readOnly={readOnly}
         onFeedback={setFeedback}
+        feedbackError={feedbackError}
         onExpand={expandAnswer}
         onStop={stopStreaming}
         onDraftChange={updateDraftText}

@@ -75,7 +75,11 @@ from hub.assistant_admin import (
     resolve_assistant_original_path,
 )
 from hub.kb_admin import KnowledgeBaseError, extract_document_text
-from hub.models import AssistantKnowledgeBaseDocument, KnowledgeBaseDocument
+from hub.models import (
+    AssistantAnswerFeedback,
+    AssistantKnowledgeBaseDocument,
+    KnowledgeBaseDocument,
+)
 from ingest.models import AssistantProductionChunk, CCProductionChunk
 
 logger = logging.getLogger(__name__)
@@ -690,6 +694,93 @@ def assistant_chat(request: HttpRequest) -> StreamingHttpResponse | JsonResponse
     response["X-Assistant-Profile"] = "assistant_bank"
     response["X-Session-ID"] = parsed["session_id"]
     return response
+
+
+_FEEDBACK_CHOICES = frozenset({"useful", "incomplete", "incorrect"})
+
+
+def _feedback_percent(value: Any) -> int | None:
+    if isinstance(value, str) and value.isdigit():
+        value = int(value)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    if value < 0 or value > 100:
+        return None
+    return value
+
+
+def _feedback_article_id(value: Any) -> int | None:
+    if value is None or value == "" or isinstance(value, bool):
+        return None
+    if isinstance(value, str) and value.isdigit():
+        value = int(value)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    if value <= 0:
+        return None
+    return value
+
+
+@require_http_methods(["POST"])
+@require_permissions(PERM_ASSISTANT_USE, api=True)
+def assistant_feedback(request: HttpRequest) -> JsonResponse:
+    """POST /api/v1/assistant/feedback/ — save the mark and maybe enqueue the question."""
+    try:
+        body = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return _validation_error(AssistantChatError("Request body must be valid JSON"))
+    if not isinstance(body, Mapping):
+        return _validation_error(AssistantChatError("Request body must be a JSON object"))
+    choice = str(body.get("choice") or "").strip()
+    if choice not in _FEEDBACK_CHOICES:
+        return _validation_error(
+            AssistantChatError("choice must be useful, incomplete or incorrect")
+        )
+    message_id = str(body.get("message_id") or "").strip()[:64]
+    if not message_id:
+        return _validation_error(AssistantChatError("message_id is required"))
+    user = getattr(request, "user", None)
+    username = ""
+    if getattr(user, "is_authenticated", False):
+        username = user.get_username()[:150]
+    from django.db import IntegrityError
+    from qu.admin_service import enqueue_from_assistant_feedback
+
+    try:
+        row, _created = AssistantAnswerFeedback.objects.get_or_create(
+            username=username,
+            message_id=message_id,
+            defaults={
+                "session_id": str(body.get("session_id") or "").strip()[:64],
+                "question": str(body.get("question") or "").strip(),
+                "answer_text": str(body.get("answer") or "").strip(),
+                "choice": choice,
+                "relevance_percent": _feedback_percent(body.get("relevance_percent")),
+                "article_id": _feedback_article_id(body.get("article_id")),
+                "article_title": str(body.get("article_title") or "").strip()[:255],
+            },
+        )
+    except IntegrityError:
+        row = AssistantAnswerFeedback.objects.get(
+            username=username,
+            message_id=message_id,
+        )
+    example = enqueue_from_assistant_feedback(row)
+    return JsonResponse(
+        {
+            "ok": True,
+            "feedback": {
+                "id": row.pk,
+                "choice": row.choice,
+                "created_at": row.created_at.isoformat() if row.created_at else "",
+            },
+            "example": (
+                None
+                if example is None
+                else {"id": example.pk, "status": example.status}
+            ),
+        }
+    )
 
 
 @require_http_methods(["GET"])

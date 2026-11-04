@@ -60,7 +60,36 @@ def update_policy(payload: Mapping[str, Any], *, username: str) -> dict[str, Any
     return serialize_policy(policy)
 
 
-def serialize_example(item: QuReferenceExample) -> dict[str, Any]:
+_ASSISTANT_MARK_LABELS = {
+    "useful": "Воспользовался",
+    "incomplete": "Неполный ответ",
+    "incorrect": "Не воспользовался",
+}
+
+
+def _assistant_mark_labels(items: list[QuReferenceExample]) -> dict[str, str]:
+    ids: list[int] = []
+    for item in items:
+        raw = (item.source_feedback_id or "").strip()
+        if item.channel != "assistant" or not raw.isdigit():
+            continue
+        ids.append(int(raw))
+    if not ids:
+        return {}
+    from hub.models import AssistantAnswerFeedback
+
+    found = AssistantAnswerFeedback.objects.filter(pk__in=ids).values_list("pk", "choice")
+    return {
+        str(pk): _ASSISTANT_MARK_LABELS.get(choice, choice)
+        for pk, choice in found
+    }
+
+
+def serialize_example(
+    item: QuReferenceExample,
+    *,
+    user_mark: str = "",
+) -> dict[str, Any]:
     return {
         "id": item.pk,
         "question": item.question,
@@ -83,6 +112,7 @@ def serialize_example(item: QuReferenceExample) -> dict[str, Any]:
         "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else "",
         "created_at": item.created_at.isoformat() if item.created_at else "",
         "updated_at": item.updated_at.isoformat() if item.updated_at else "",
+        "user_mark": user_mark,
     }
 
 
@@ -90,7 +120,12 @@ def list_examples(*, status: str = "") -> dict[str, Any]:
     qs = QuReferenceExample.objects.all()
     if status:
         qs = qs.filter(status=status)
-    items = [serialize_example(item) for item in qs[:400]]
+    rows = list(qs[:400])
+    marks = _assistant_mark_labels(rows)
+    items = [
+        serialize_example(item, user_mark=marks.get(item.source_feedback_id, ""))
+        for item in rows
+    ]
     return {
         "items": items,
         "counts": {
@@ -281,6 +316,52 @@ def enqueue_from_feedback(feedback: Any) -> QuReferenceExample | None:
         channel=str(getattr(feedback, "source", "") or "chat")[:32],
         article_title=str(getattr(feedback, "citation_title", "") or "")[:255],
     )
+    return item
+
+
+def enqueue_from_assistant_feedback(feedback: Any) -> QuReferenceExample | None:
+    """New assistant question formulation from a saved user mark (§5.2.8 / §5.2.10)."""
+    question = str(getattr(feedback, "question", "") or "").strip()
+    if not question:
+        return None
+    mode = get_policy().mode
+    if mode == QuReplenishmentPolicy.MODE_SUGGEST:
+        return None
+    digest = hash_question(question)
+    existing = (
+        QuReferenceExample.objects.filter(question_hash=digest)
+        .exclude(status=QuReferenceExample.STATUS_REJECTED)
+        .first()
+    )
+    if existing:
+        return existing
+    auto = mode == QuReplenishmentPolicy.MODE_AUTO
+    article_raw = getattr(feedback, "article_id", None)
+    article_id = article_raw if isinstance(article_raw, int) else None
+    relevance = getattr(feedback, "relevance_percent", None)
+    if not isinstance(relevance, int) or isinstance(relevance, bool):
+        relevance = None
+    item = QuReferenceExample.objects.create(
+        question=question[:1000],
+        question_hash=digest,
+        status=(
+            QuReferenceExample.STATUS_ACTIVE
+            if auto
+            else QuReferenceExample.STATUS_PENDING
+        ),
+        is_active=auto,
+        source=QuReferenceExample.SOURCE_DIALOG,
+        source_feedback_id=str(getattr(feedback, "id", "") or "")[:64],
+        original_hint=str(getattr(feedback, "answer_text", "") or ""),
+        relevance_percent=relevance,
+        operator_name=str(getattr(feedback, "username", "") or "")[:160],
+        channel="assistant",
+        article_id=article_id,
+        article_title=str(getattr(feedback, "article_title", "") or "")[:255],
+        created_by=str(getattr(feedback, "username", "") or "")[:150],
+    )
+    if auto:
+        _enqueue_retrain("assistant.feedback.auto")
     return item
 
 

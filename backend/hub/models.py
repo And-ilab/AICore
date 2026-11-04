@@ -733,6 +733,44 @@ class AssistantContentFilter(models.Model):
         return self.code
 
 
+class AssistantAnswerFeedback(models.Model):
+    """User mark on an assistant reply (§5.1.19). Feeds QU replenishment."""
+
+    CHOICE_USEFUL = "useful"
+    CHOICE_INCOMPLETE = "incomplete"
+    CHOICE_INCORRECT = "incorrect"
+    CHOICE_CHOICES = (
+        (CHOICE_USEFUL, "Воспользовался"),
+        (CHOICE_INCOMPLETE, "Неполный ответ"),
+        (CHOICE_INCORRECT, "Не воспользовался"),
+    )
+
+    username = models.CharField(max_length=150, blank=True, default="")
+    session_id = models.CharField(max_length=64, blank=True, default="")
+    message_id = models.CharField(max_length=64)
+    question = models.TextField(blank=True, default="")
+    answer_text = models.TextField(blank=True, default="")
+    choice = models.CharField(max_length=16, choices=CHOICE_CHOICES)
+    relevance_percent = models.PositiveSmallIntegerField(null=True, blank=True)
+    article_id = models.BigIntegerField(null=True, blank=True)
+    article_title = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("username", "message_id"),
+                name="assistant_feedback_user_message_uniq",
+            ),
+        ]
+        verbose_name = "Assistant answer feedback"
+        verbose_name_plural = "Assistant answer feedback"
+
+    def __str__(self) -> str:
+        return f"{self.choice}:{self.message_id}"
+
+
 class DialogScenario(models.Model):
     """CC dialog scenario registry (FR-SCR-01…12 / §4.5.2)."""
 
