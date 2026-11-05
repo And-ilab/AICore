@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any, Mapping
 
 from django.core.exceptions import ValidationError
@@ -20,6 +21,7 @@ from auth.roles import (
     PERM_QU_ADMIN,
     role_codes_for_user,
 )
+from assistant.path_log import elapsed_ms, log_path
 from assistant.doc_templates import (
     create_template,
     delete_template,
@@ -502,6 +504,56 @@ def assistant_content_filters(request: HttpRequest) -> JsonResponse:
     return JsonResponse(payload)
 
 
+def _preview_request_id(request: HttpRequest) -> str:
+    request_id = getattr(request, "audit_request_id", None)
+    if isinstance(request_id, str) and request_id.strip():
+        return request_id
+    return "-"
+
+
+def _hint_chars(result: Mapping[str, Any]) -> int:
+    hint = result.get("hint")
+    if not isinstance(hint, Mapping):
+        return 0
+    text = hint.get("text")
+    return len(text) if isinstance(text, str) else 0
+
+
+def _timed_preview(request: HttpRequest, query: str, *, limit: int) -> dict[str, Any]:
+    """Run the understanding preview and write one path-log line."""
+    started = time.perf_counter()
+    try:
+        result = preview_admin_query(query, limit=limit)
+    except Exception:
+        elapsed = elapsed_ms(started)
+        log_path(
+            {
+                "path": "preview",
+                "request_id": _preview_request_id(request),
+                "outcome": "error",
+                "doc_count": None,
+                "hint_chars": 0,
+                "retrieval_ms": elapsed,
+                "total_ms": elapsed,
+            }
+        )
+        raise
+    elapsed = elapsed_ms(started)
+    documents = result.get("documents")
+    log_path(
+        {
+            "path": "preview",
+            "request_id": _preview_request_id(request),
+            "outcome": "ok",
+            "doc_count": len(documents) if isinstance(documents, list) else 0,
+            "hint_chars": _hint_chars(result),
+            "retrieval_ms": elapsed,
+            "total_ms": elapsed,
+        }
+    )
+    return result
+
+
 @require_http_methods(["POST"])
 @require_permissions(PERM_QU_ADMIN, api=True)
 def qu_preview(request: HttpRequest) -> JsonResponse:
@@ -515,7 +567,7 @@ def qu_preview(request: HttpRequest) -> JsonResponse:
         limit = body.get("limit", 5)
         if isinstance(limit, bool) or not isinstance(limit, int):
             raise ValueError("limit must be an integer")
-        result = preview_admin_query(query, limit=limit)
+        result = _timed_preview(request, query, limit=limit)
     except json.JSONDecodeError:
         return JsonResponse(
             {

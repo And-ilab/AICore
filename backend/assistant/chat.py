@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 import uuid
 from typing import Any, Iterator, Mapping, Sequence
 
@@ -21,6 +22,7 @@ from assistant.idp import (
     has_attachment_marker,
     wants_summary,
 )
+from assistant.path_log import elapsed_ms, log_path
 from qu.assistant_retrieval import preview_assistant_query
 from hub.skill_store import apply_skill_layer
 
@@ -467,6 +469,15 @@ def _admin_preset_is_expand() -> bool:
         return False
 
 
+def _preset_name() -> str:
+    """Preset label for the path log. Empty when settings cannot be read."""
+    try:
+        preset = get_model_settings(PROFILE).preset
+    except Exception:
+        return ""
+    return preset if isinstance(preset, str) else ""
+
+
 def _effective_expand(requested: bool) -> bool:
     return bool(requested) or _admin_preset_is_expand()
 
@@ -654,6 +665,92 @@ def _clip_sse_stream(frames: Iterator[str], limit: int) -> Iterator[str]:
         return
 
 
+def _kb_count(kb_slugs: Sequence[str] | None) -> int:
+    if not kb_slugs:
+        return 0
+    return sum(1 for slug in kb_slugs if str(slug).strip())
+
+
+def _top_relevance(documents: Sequence[Mapping[str, Any]]) -> int | float | None:
+    if not documents:
+        return None
+    value = documents[0].get("relevance_percent")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value
+
+
+def _message_chars(messages: Sequence[Mapping[str, Any]]) -> int:
+    total = 0
+    for item in messages:
+        content = item.get("content")
+        if isinstance(content, str):
+            total += len(content)
+    return total
+
+
+def _included_rag_chars(
+    documents: Sequence[Mapping[str, Any]],
+    *,
+    expand: bool,
+) -> int:
+    """Length of fragment bodies that ``_inject_rag_context`` puts in the prompt."""
+    remaining = 16000 if expand else LLM_RAG_TOTAL_CHARS
+    chunk_budget = 6000 if expand else LLM_CHUNK_CHARS
+    total = 0
+    for document in documents:
+        if remaining <= 200:
+            break
+        per_doc = min(chunk_budget, remaining)
+        body = _document_context_text(document, per_doc)
+        if not body:
+            continue
+        remaining -= len(body)
+        total += len(body)
+    return total
+
+
+def _sse_frame_has_content(frame: str) -> bool:
+    stripped = frame.lstrip()
+    if not stripped.startswith("data:"):
+        return False
+    payload = stripped[5:].strip()
+    if not payload or payload == "[DONE]":
+        return False
+    try:
+        chunk = json.loads(payload)
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(chunk, dict):
+        return False
+    choices = chunk.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return False
+    first = choices[0]
+    if not isinstance(first, dict):
+        return False
+    delta = first.get("delta")
+    if not isinstance(delta, dict):
+        return False
+    text = delta.get("content")
+    return isinstance(text, str) and bool(text)
+
+
+def _timed_outbound(
+    frames: Iterator[str],
+    marks: dict[str, float | None],
+) -> Iterator[str]:
+    """Yield the same frames and record time-to-first text plus stream duration."""
+    started = time.perf_counter()
+    try:
+        for frame in frames:
+            if marks["ttft_ms"] is None and _sse_frame_has_content(frame):
+                marks["ttft_ms"] = elapsed_ms(started)
+            yield frame
+    finally:
+        marks["llm_ms"] = elapsed_ms(started)
+
+
 def iter_chat_sse(
     messages: Sequence[Mapping[str, str]],
     *,
@@ -665,156 +762,224 @@ def iter_chat_sse(
     actor: str = "",
 ) -> Iterator[str]:
     """Yield OpenAI-compatible SSE frames from ``assistant_bank`` with RAG."""
+    started = time.perf_counter()
+    requested_expand = bool(expand)
+    outcome: str | None = None
+    filter_ms: float | None = None
+    retrieval_ms: float | None = None
+    prompt_ms: float | None = None
+    prompt_chars: int | None = None
+    rag_chars: int | None = None
+    max_tokens: int | None = None
+    doc_count = 0
+    top_relevance: int | float | None = None
+    token_marks: dict[str, float | None] = {"ttft_ms": None, "llm_ms": None}
     try:
-        content_hit = match_content_filter(_filter_query(messages))
-    except Exception:
-        logger.exception("content_filter_match_failed")
-        content_hit = None
-    if content_hit is not None:
+        filter_started = time.perf_counter()
         try:
-            audit_content_filter_block(username=actor, code=content_hit.code)
+            content_hit = match_content_filter(_filter_query(messages))
         except Exception:
-            logger.exception("content_filter_audit_failed")
-        yield from _iter_plain_sse(content_hit.refusal_text)
-        return
+            logger.exception("content_filter_match_failed")
+            content_hit = None
+        filter_ms = elapsed_ms(filter_started)
+        if content_hit is not None:
+            outcome = "content_filter"
+            try:
+                audit_content_filter_block(username=actor, code=content_hit.code)
+            except Exception:
+                logger.exception("content_filter_audit_failed")
+            yield from _iter_plain_sse(content_hit.refusal_text)
+            return
 
-    expand = _effective_expand(expand)
-    char_limit = _response_char_limit(expand=expand)
-    active = gateway or ModelGateway.from_registry()
-    parameters = _generation_parameters(expand=expand)
+        expand = _effective_expand(expand)
+        char_limit = _response_char_limit(expand=expand)
+        active = gateway or ModelGateway.from_registry()
+        parameters = _generation_parameters(expand=expand)
+        raw_max_tokens = parameters.get("max_tokens")
+        if isinstance(raw_max_tokens, int) and not isinstance(raw_max_tokens, bool):
+            max_tokens = raw_max_tokens
 
-    if request_id:
-        yield f": request_id {request_id}\n\n"
+        if request_id:
+            yield f": request_id {request_id}\n\n"
 
-    # Immediate SSE frame so proxies/UI know the stream is alive while we embed.
-    yield (
-        "data: "
-        + json.dumps(
-            {
-                "status": "retrieving",
-                "choices": [{"index": 0, "delta": {}, "finish_reason": None}],
-            },
-            ensure_ascii=False,
-        )
-        + "\n\n"
-    )
-
-    documents: list[dict[str, Any]] = []
-    attachment_mode = has_attachment_marker(messages)
-    try:
-        if not attachment_mode:
-            documents, _threshold = retrieve_assistant_context(
-                messages,
-                kb_slugs=kb_slugs,
-            )
-    except Exception:
-        documents = []
-
-    sources = [_citation(document) for document in documents]
-    yield (
-        "data: "
-        + json.dumps(
-            {
-                "status": "generating",
-                "sources": sources,
-                "choices": [{"index": 0, "delta": {}, "finish_reason": None}],
-            },
-            ensure_ascii=False,
-        )
-        + "\n\n"
-    )
-
-    if not documents and not attachment_mode and not skill_instruction:
-        yield from _iter_plain_sse(NO_KB_ANSWER)
-        return
-
-    outbound = (
-        _inject_rag_context(messages, documents, expand=expand)
-        if documents
-        else list(messages)
-    )
-    if not documents:
-        if attachment_mode:
-            empty_system = (
-                "Ты внутренний ИИ-ассистент банка. Пользователь загрузил "
-                "документ. "
-                + (
-                    "Сделай полное резюме по фрагментам вложения. "
-                    if wants_summary(_last_user_text(messages))
-                    else "Ответь на вопрос только по фрагментам вложения. "
-                )
-                + "Заканчивай законченным предложением и законченной мыслью. "
-                + _ANSWER_STYLE
-            )
-        else:
-            empty_system = (
-                (EXPAND_SYSTEM_PROMPT if expand else DEFAULT_SYSTEM_PROMPT)
-                + " В выбранных базах знаний релевантных фрагментов "
-                "не найдено — сообщи об этом пользователю."
-            )
-        outbound = [
-            {
-                "role": "system",
-                "content": empty_system,
-            },
-            *[
-                {"role": item["role"], "content": item["content"]}
-                for item in outbound
-                if item.get("role") != "system"
-            ],
-        ]
-
-    if skill_instruction:
-        outbound = apply_skill_layer(
-            [dict(item) for item in outbound],
-            skill_instruction,
-        )
-
-    if char_limit is not None:
-        length_hint = f" Ответ строго не длиннее {char_limit} символов."
-        outbound = [
-            {
-                **item,
-                "content": f"{item['content']}{length_hint}",
-            }
-            if item.get("role") == "system"
-            else item
-            for item in outbound
-        ]
-
-    outbound = apply_content_filter_instruction(outbound)
-
-    try:
-        stream = active.stream(PROFILE, outbound, **parameters)
-        if char_limit is not None:
-            stream = _clip_sse_stream(stream, char_limit)
-        yield from stream
-    except ModelGatewayConfigurationError as exc:
-        raise AssistantChatError(str(exc)) from exc
-    except Exception as exc:
-        # Surface gateway/network errors into the SSE so the UI stops spinning.
-        err = str(exc) or exc.__class__.__name__
+        # Immediate SSE frame so proxies/UI know the stream is alive while we embed.
         yield (
             "data: "
             + json.dumps(
                 {
-                    "error": "llm_error",
-                    "details": err,
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {
-                                "content": (
-                                    "Не удалось получить ответ от модели: "
-                                    f"{err}"
-                                )
-                            },
-                            "finish_reason": "stop",
-                        }
-                    ],
+                    "status": "retrieving",
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": None}],
                 },
                 ensure_ascii=False,
             )
             + "\n\n"
         )
-        yield "data: [DONE]\n\n"
+
+        documents: list[dict[str, Any]] = []
+        attachment_mode = has_attachment_marker(messages)
+        if not attachment_mode:
+            retrieval_started = time.perf_counter()
+            try:
+                documents, _threshold = retrieve_assistant_context(
+                    messages,
+                    kb_slugs=kb_slugs,
+                )
+            except Exception:
+                documents = []
+            retrieval_ms = elapsed_ms(retrieval_started)
+
+        doc_count = len(documents)
+        top_relevance = _top_relevance(documents)
+        sources = [_citation(document) for document in documents]
+        yield (
+            "data: "
+            + json.dumps(
+                {
+                    "status": "generating",
+                    "sources": sources,
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": None}],
+                },
+                ensure_ascii=False,
+            )
+            + "\n\n"
+        )
+
+        if not documents and not attachment_mode and not skill_instruction:
+            outcome = "no_kb"
+            yield from _iter_plain_sse(NO_KB_ANSWER)
+            return
+
+        prompt_started = time.perf_counter()
+        outbound = (
+            _inject_rag_context(messages, documents, expand=expand)
+            if documents
+            else list(messages)
+        )
+        if not documents:
+            if attachment_mode:
+                empty_system = (
+                    "Ты внутренний ИИ-ассистент банка. Пользователь загрузил "
+                    "документ. "
+                    + (
+                        "Сделай полное резюме по фрагментам вложения. "
+                        if wants_summary(_last_user_text(messages))
+                        else "Ответь на вопрос только по фрагментам вложения. "
+                    )
+                    + "Заканчивай законченным предложением и законченной мыслью. "
+                    + _ANSWER_STYLE
+                )
+            else:
+                empty_system = (
+                    (EXPAND_SYSTEM_PROMPT if expand else DEFAULT_SYSTEM_PROMPT)
+                    + " В выбранных базах знаний релевантных фрагментов "
+                    "не найдено — сообщи об этом пользователю."
+                )
+            outbound = [
+                {
+                    "role": "system",
+                    "content": empty_system,
+                },
+                *[
+                    {"role": item["role"], "content": item["content"]}
+                    for item in outbound
+                    if item.get("role") != "system"
+                ],
+            ]
+
+        if skill_instruction:
+            outbound = apply_skill_layer(
+                [dict(item) for item in outbound],
+                skill_instruction,
+            )
+
+        if char_limit is not None:
+            length_hint = f" Ответ строго не длиннее {char_limit} символов."
+            outbound = [
+                {
+                    **item,
+                    "content": f"{item['content']}{length_hint}",
+                }
+                if item.get("role") == "system"
+                else item
+                for item in outbound
+            ]
+
+        outbound = apply_content_filter_instruction(outbound)
+        prompt_ms = elapsed_ms(prompt_started)
+        prompt_chars = _message_chars(outbound)
+        rag_chars = (
+            _included_rag_chars(documents, expand=expand) if documents else 0
+        )
+
+        try:
+            stream = active.stream(PROFILE, outbound, **parameters)
+            if char_limit is not None:
+                stream = _clip_sse_stream(stream, char_limit)
+            yield from _timed_outbound(stream, token_marks)
+        except ModelGatewayConfigurationError as exc:
+            outcome = "llm_error"
+            raise AssistantChatError(str(exc)) from exc
+        except Exception as exc:
+            # Surface gateway/network errors into the SSE so the UI stops spinning.
+            outcome = "llm_error"
+            err = str(exc) or exc.__class__.__name__
+            yield (
+                "data: "
+                + json.dumps(
+                    {
+                        "error": "llm_error",
+                        "details": err,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {
+                                    "content": (
+                                        "Не удалось получить ответ от модели: "
+                                        f"{err}"
+                                    )
+                                },
+                                "finish_reason": "stop",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            )
+            yield "data: [DONE]\n\n"
+        else:
+            outcome = "streamed"
+    except GeneratorExit:
+        outcome = "client_closed"
+        raise
+    except AssistantChatError:
+        outcome = "llm_error"
+        raise
+    finally:
+        total_ms = elapsed_ms(started)
+        ttft_ms = token_marks["ttft_ms"]
+        log_path(
+            {
+                "path": "chat",
+                "request_id": request_id or "-",
+                "outcome": outcome,
+                "expand": requested_expand,
+                "preset": _preset_name(),
+                "profile": PROFILE,
+                "kb_count": _kb_count(kb_slugs),
+                "doc_count": doc_count,
+                "history_count": len(messages),
+                "top_relevance": top_relevance,
+                "rag_chars": rag_chars,
+                "prompt_chars": prompt_chars,
+                "max_tokens": max_tokens,
+                "filter_ms": filter_ms,
+                "retrieval_ms": retrieval_ms,
+                "prompt_ms": prompt_ms,
+                "ttft_ms": ttft_ms,
+                "llm_ms": token_marks["llm_ms"],
+                "total_ms": total_ms,
+                "preview_text_ms": ttft_ms,
+                "first_text_ms": ttft_ms,
+            }
+        )

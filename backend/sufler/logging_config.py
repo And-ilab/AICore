@@ -1,8 +1,9 @@
 """One dictConfig for every process that loads Django settings.
 
 Backend, Celery and the Telegram poller are separate processes. Each gets
-its own pair of files (``LOG_NAME.log`` and ``LOG_NAME.error.log``) so
-rotation does not fight over a single open file on Windows.
+its own pair of files (``LOG_NAME.log`` and ``LOG_NAME.error.log``) plus
+``LOG_NAME.assistant-path.log`` so rotation does not fight over a single
+open file on Windows.
 """
 
 from __future__ import annotations
@@ -99,8 +100,19 @@ def build_logging(*, base_dir: Path, debug: bool) -> dict:
             "formatter": "standard",
             "filters": ["request_id"],
         },
+        "assistant_path_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(log_dir / f"{name}.assistant-path.log"),
+            "maxBytes": _MAX_BYTES,
+            "backupCount": _BACKUP_COUNT,
+            "encoding": "utf-8",
+            "level": "INFO",
+            "formatter": "standard",
+            "filters": ["request_id"],
+        },
     }
     active_handlers = {key: handler_config[key] for key in handlers}
+    active_handlers["assistant_path_file"] = handler_config["assistant_path_file"]
 
     # Empty handler lists clear Django's default console/mail handlers so a
     # line is written once, through the root handlers below.
@@ -131,5 +143,12 @@ def build_logging(*, base_dir: Path, debug: bool) -> dict:
         },
         "handlers": active_handlers,
         "root": {"handlers": handlers, "level": level},
-        "loggers": quiet_loggers,
+        "loggers": {
+            **quiet_loggers,
+            "assistant.path": {
+                "handlers": ["assistant_path_file"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
     }
