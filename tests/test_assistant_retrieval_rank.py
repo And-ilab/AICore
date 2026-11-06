@@ -17,12 +17,15 @@ from django.test import TestCase  # noqa: E402
 from ingest.models import AssistantProductionChunk, CCProductionChunk  # noqa: E402
 from ingest.pipeline import deterministic_embedding  # noqa: E402
 from qu.assistant_retrieval import (  # noqa: E402
+    _content_only_score,
+    _document_from_chunk,
     contact_fact_signal,
     permalink_signal,
     preview_assistant_query,
 )
 from qu.service import (  # noqa: E402
     expand_user_query,
+    relevance_percent,
     topical_relevance_score,
     _lookup_hit_count,
 )
@@ -346,6 +349,102 @@ class AssistantRetrievalRankTest(TestCase):
         )
         joined = " ".join(doc.get("content") or "" for doc in result["documents"])
         self.assertIn("убытке", joined)
+
+    def test_overflow_score_keeps_answering_chunk_first(self):
+        query = (
+            "стаж отпуска рождение пособие документ "
+            "оздоровление усыновление пенсия"
+        )
+        cover = (
+            "При отпуске и рождении, а также при усыновлении "
+            "и оздоровлении нужен документ."
+        )
+        answer = (
+            "Стаж при отпуске. Рождение ребёнка, усыновление, оздоровление, "
+            "пенсия, пособие, документ, брак, смерть, увечье, найм, заявление."
+        )
+        cover_score = _content_only_score(query, cover)
+        answer_score = _content_only_score(query, answer)
+        self.assertGreater(cover_score, 1)
+        self.assertGreater(answer_score, cover_score)
+        self._chunk(
+            kb_slug="assistant_overflow",
+            article_id=9_100_401,
+            chunk_index=0,
+            title="Положение о пособиях.doc",
+            content=cover,
+            checksum="sha256:overflow-cover",
+        )
+        self._chunk(
+            kb_slug="assistant_overflow",
+            article_id=9_100_401,
+            chunk_index=5,
+            title="Положение о пособиях.doc",
+            content=answer,
+            checksum="sha256:overflow-answer",
+        )
+        result = preview_assistant_query(query, limit=5)
+        own = [
+            document
+            for document in result["documents"]
+            if document["article_id"] == 9_100_401
+        ]
+        self.assertGreaterEqual(len(own), 2)
+        self.assertEqual(own[0]["chunk_index"], 5)
+        self.assertGreater(own[0]["relevance_score"], own[1]["relevance_score"])
+        self.assertGreater(own[0]["relevance_score"], 1)
+        self.assertGreater(own[1]["relevance_score"], 1)
+        self.assertEqual(own[0]["relevance_percent"], 100)
+        self.assertEqual(own[1]["relevance_percent"], 100)
+
+
+class RelevancePercentTest(unittest.TestCase):
+    def test_percent_stays_inside_zero_to_hundred(self):
+        self.assertEqual(relevance_percent(1.2), 100)
+        self.assertEqual(relevance_percent(0.86), 86)
+        self.assertEqual(relevance_percent(0), 0)
+        self.assertEqual(relevance_percent(-0.2), 0)
+
+    def test_document_keeps_raw_score_and_caps_percent(self):
+        document = _document_from_chunk(
+            rank=1,
+            score=1.2,
+            chunk=type(
+                "Chunk",
+                (),
+                {
+                    "article_id": 1,
+                    "chunk_index": 5,
+                    "title": "file.doc",
+                    "permalink": "",
+                    "content": "стаж",
+                },
+            )(),
+            kb_slug="assistant_overflow",
+            threshold=0.2,
+            query="стаж",
+        )
+        self.assertEqual(document["relevance_score"], 1.2)
+        self.assertEqual(document["relevance_percent"], 100)
+        capped = _document_from_chunk(
+            rank=2,
+            score=0.86,
+            chunk=type(
+                "Chunk",
+                (),
+                {
+                    "article_id": 1,
+                    "chunk_index": 0,
+                    "title": "file.doc",
+                    "permalink": "",
+                    "content": "стаж",
+                },
+            )(),
+            kb_slug="assistant_overflow",
+            threshold=0.2,
+            query="стаж",
+        )
+        self.assertEqual(capped["relevance_percent"], 86)
 
 
 class LookupHitTest(unittest.TestCase):

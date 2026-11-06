@@ -543,6 +543,11 @@ def _phrase_bonus(query: str, text: str) -> float:
     return min(0.16, 0.08 * hits)
 
 
+def relevance_percent(score: float) -> int:
+    """Match percent shown to the user. Ranking scores may exceed 1.0."""
+    return min(100, max(0, round(float(score) * 100)))
+
+
 def topical_relevance_score(
     query: str,
     title: str,
@@ -780,7 +785,7 @@ def preview_query(
                 "snippet": focused_snippet(content, normalized_query, preview),
                 "content": content,
                 "relevance_score": round(score, 4),
-                "relevance_percent": round(score * 100),
+                "relevance_percent": relevance_percent(score),
                 "meets_min_relevance": score >= threshold,
                 "matched_example_id": matched_example_id,
                 "matched_example": matched_example,

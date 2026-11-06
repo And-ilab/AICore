@@ -30,6 +30,7 @@ from qu.service import (
     extractive_answer,
     focused_snippet,
     matching_training_examples,
+    relevance_percent,
     topical_relevance_score,
     training_example_score,
 )
@@ -566,7 +567,7 @@ def _document_from_chunk(
         "content": text,
         "snippet": focused_snippet(text, query, SNIPPET_PREVIEW_CHARS),
         "relevance_score": round(score, 4),
-        "relevance_percent": round(score * 100),
+        "relevance_percent": relevance_percent(score),
         "meets_min_relevance": score >= threshold,
     }
 
