@@ -72,6 +72,26 @@ The event mapping is:
 - **INT-04:** hard-delete all article vectors;
 - **INT-05:** replace the previous article version without duplicate chunks.
 
+## INT-10 full load
+
+One-shot import of published articles. It does not move the INT-09 cursor and
+does not use Celery. After it finishes, keep accepting webhooks as usual.
+
+```text
+python manage.py suz_full_load --iblock-id 42
+python manage.py suz_full_load --iblock-id 42 --start 50 --limit 100
+python manage.py suz_full_load --iblock-id 42 --dry-run
+```
+
+Requires `BITRIX_REST_BASE_URL` and `BITRIX_SERVICE_TOKEN` when
+`SUZ_INGEST_MODE=prod`. Paths default to `/rest/iblock.element.list` and
+`/rest/iblock.element.get`. Set `BITRIX_ARTICLE_PATH=/local/api/sufler/v1/articles/{id}`
+to load cards from the custom module instead.
+
+A failed list page stops the command and prints `--start` to resume from.
+Article cards that lack a permalink, or whose `version_id` is not an integer,
+are counted as errors and do not stop the rest of the load.
+
 ## Verification
 
 ```powershell
