@@ -292,6 +292,17 @@ BITRIX_CHANGES_PATH = os.getenv(
     "BITRIX_CHANGES_PATH",
     "/local/api/sufler/v1/changes",
 )
+# INT-10 full load (element.list + element.get, or a custom article URL).
+BITRIX_ELEMENT_LIST_PATH = os.getenv(
+    "BITRIX_ELEMENT_LIST_PATH",
+    "/rest/iblock.element.list",
+)
+BITRIX_ELEMENT_GET_PATH = os.getenv(
+    "BITRIX_ELEMENT_GET_PATH",
+    "/rest/iblock.element.get",
+)
+# Optional template with {id}. When set, replaces element.get.
+BITRIX_ARTICLE_PATH = os.getenv("BITRIX_ARTICLE_PATH", "").strip()
 BITRIX_HTTP_TIMEOUT_SECONDS = float(
     os.getenv("BITRIX_HTTP_TIMEOUT_SECONDS", "15")
 )
@@ -561,6 +572,10 @@ CELERY_BEAT_SCHEDULE = {
     "online-chat-sync-work-schedule": {
         "task": "online_chat.tasks.sync_work_schedule",
         "schedule": 20.0,
+    },
+    "assistant-monitoring-schedules": {
+        "task": "assistant.tasks.run_due_report_schedules",
+        "schedule": 3600.0,
     },
 }
 

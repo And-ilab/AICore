@@ -19,14 +19,11 @@ from django.http import (
 from django.utils.encoding import iri_to_uri
 from django.views.decorators.http import require_http_methods
 
-from assistant.ass_reports import (
-    AssReportsError,
-    build_analytics,
-    build_csv_export,
-    build_xlsx_export,
-    catalog,
-    export_filename,
-    parse_report_filters,
+from assistant.monitoring_views import (
+    monitoring_report_detail as assistant_report_detail,
+    monitoring_reports_analytics as assistant_reports_analytics,
+    monitoring_reports_catalog as assistant_reports_catalog,
+    monitoring_reports_export as assistant_reports_export,
 )
 from assistant.content_intent import generate_from_prompt
 from assistant.doc_templates import (
@@ -67,7 +64,7 @@ from assistant.media_asr import (
 from assistant.local_llm import get_models_status, select_model
 from assistant.openapi import build_openapi_document
 from auth.decorators import require_permissions
-from auth.roles import PERM_ASSISTANT_REPORTS, PERM_ASSISTANT_USE
+from auth.roles import PERM_ASSISTANT_USE
 from hub.content_filters import audit_content_filter_block, match_content_filter
 from hub.assistant_admin import (
     AssistantAdminError,
@@ -113,16 +110,6 @@ _FIELD_ORDER = tuple(FIELD_LABELS_RU.keys())
 
 
 def _validation_error(exc: AssistantChatError) -> JsonResponse:
-    return JsonResponse(
-        {
-            "error": "validation_error",
-            "details": {"request": [str(exc)]},
-        },
-        status=400,
-    )
-
-
-def _reports_validation_error(exc: AssReportsError) -> JsonResponse:
     return JsonResponse(
         {
             "error": "validation_error",
@@ -670,9 +657,11 @@ def assistant_chat(request: HttpRequest) -> StreamingHttpResponse | JsonResponse
     ]
 
     actor = ""
+    department = ""
     user = getattr(request, "user", None)
     if getattr(user, "is_authenticated", False):
         actor = user.get_username()
+        department = str(getattr(user, "ldap_department", "") or "")
 
     def event_stream():
         yield from iter_chat_sse(
@@ -682,6 +671,9 @@ def assistant_chat(request: HttpRequest) -> StreamingHttpResponse | JsonResponse
             expand=bool(parsed.get("expand")),
             skill_instruction=skill_instruction,
             actor=actor,
+            message_id=str(parsed.get("message_id") or ""),
+            session_id=str(parsed.get("session_id") or ""),
+            department=department,
         )
 
     response = StreamingHttpResponse(
@@ -787,69 +779,6 @@ def assistant_feedback(request: HttpRequest) -> JsonResponse:
 def assistant_openapi(request: HttpRequest) -> JsonResponse:
     """GET /api/v1/assistant/openapi.json — generated OpenAPI 3 schema."""
     return JsonResponse(build_openapi_document())
-
-
-@require_http_methods(["GET"])
-@require_permissions(PERM_ASSISTANT_REPORTS, api=True)
-def assistant_reports_catalog(request: HttpRequest) -> JsonResponse:
-    """GET /api/v1/assistant/reports/ — FR-RPT-ASS catalog (III.10.2)."""
-    return JsonResponse(catalog())
-
-
-@require_http_methods(["GET"])
-@require_permissions(PERM_ASSISTANT_REPORTS, api=True)
-def assistant_reports_analytics(request: HttpRequest) -> JsonResponse:
-    """GET /api/v1/assistant/reports/analytics/ — usage, feedback, tools."""
-    try:
-        filters = parse_report_filters(request.GET)
-        return JsonResponse(build_analytics(filters))
-    except AssReportsError as exc:
-        return _reports_validation_error(exc)
-
-
-@require_http_methods(["GET"])
-@require_permissions(PERM_ASSISTANT_REPORTS, api=True)
-def assistant_report_detail(request: HttpRequest, report_id: str) -> JsonResponse:
-    """GET /api/v1/assistant/reports/<FR-RPT-ASS-XX>/ — single FR section."""
-    try:
-        filters = parse_report_filters(request.GET)
-        filters["report_id"] = report_id
-        if report_id not in {
-            item["id"] for item in catalog()["items"]
-        }:
-            raise AssReportsError(f"Unknown report_id: {report_id}")
-        payload = build_analytics(filters)
-        payload["report_id"] = report_id
-        return JsonResponse(payload)
-    except AssReportsError as exc:
-        return _reports_validation_error(exc)
-
-
-@require_http_methods(["GET"])
-@require_permissions(PERM_ASSISTANT_REPORTS, api=True)
-def assistant_reports_export(request: HttpRequest) -> HttpResponse:
-    """GET /api/v1/assistant/reports/export/ — CSV/XLSX (FR-RPT-ASS-07)."""
-    try:
-        filters = parse_report_filters(request.GET)
-        analytics = build_analytics(filters)
-        export_format = filters["format"]
-        if export_format == "xlsx":
-            payload = build_xlsx_export(analytics)
-            content_type = (
-                "application/vnd.openxmlformats-officedocument."
-                "spreadsheetml.sheet"
-            )
-        else:
-            payload = build_csv_export(analytics)
-            content_type = "text/csv; charset=utf-8"
-        filename = export_filename(filters, export_format)
-    except AssReportsError as exc:
-        return _reports_validation_error(exc)
-
-    response = HttpResponse(payload, content_type=content_type)
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    response["X-FR-Catalog"] = "FR-RPT-ASS"
-    return response
 
 
 def _generation_text(prompt: str, values: Mapping[str, Any]) -> str:

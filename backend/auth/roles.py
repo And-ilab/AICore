@@ -90,6 +90,7 @@ ROLE_DEFINITIONS = (
                 PERM_QU_ADMIN,
                 PERM_PROMPTS_ADMIN,
                 PERM_ASSISTANT_ADMIN,
+                PERM_ASSISTANT_REPORTS,
             }
         ),
         ("hub", "kb_llm", "qu", "prompts", "assistant_settings"),
@@ -156,6 +157,7 @@ ROLE_DEFINITIONS = (
             {
                 PERM_ASSISTANT_ADMIN,
                 PERM_ASSISTANT_USE,
+                PERM_ASSISTANT_REPORTS,
                 PERM_INTEGRATIONS_ADMIN,
             }
         ),

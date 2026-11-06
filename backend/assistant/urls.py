@@ -24,6 +24,18 @@ from assistant.views import (
     assistant_reports_export,
     assistant_source_download,
 )
+from assistant.monitoring_views import (
+    monitoring_event_detail,
+    monitoring_event_hallucination,
+    monitoring_events,
+    monitoring_schedule_detail,
+    monitoring_schedule_run,
+    monitoring_schedules,
+    monitoring_series,
+    monitoring_summary,
+    monitoring_template_detail,
+    monitoring_templates,
+)
 
 urlpatterns = [
     path("chat", assistant_chat, name="assistant_chat"),
@@ -72,6 +84,56 @@ urlpatterns = [
         name="assistant_content_from_prompt",
     ),
     path("openapi.json", assistant_openapi, name="assistant_openapi"),
+    path(
+        "monitoring/summary/",
+        monitoring_summary,
+        name="assistant_monitoring_summary",
+    ),
+    path(
+        "monitoring/events/",
+        monitoring_events,
+        name="assistant_monitoring_events",
+    ),
+    path(
+        "monitoring/events/<int:event_id>/",
+        monitoring_event_detail,
+        name="assistant_monitoring_event_detail",
+    ),
+    path(
+        "monitoring/events/<int:event_id>/hallucination/",
+        monitoring_event_hallucination,
+        name="assistant_monitoring_event_hallucination",
+    ),
+    path(
+        "monitoring/series/",
+        monitoring_series,
+        name="assistant_monitoring_series",
+    ),
+    path(
+        "monitoring/templates/",
+        monitoring_templates,
+        name="assistant_monitoring_templates",
+    ),
+    path(
+        "monitoring/templates/<int:template_id>/",
+        monitoring_template_detail,
+        name="assistant_monitoring_template_detail",
+    ),
+    path(
+        "monitoring/schedules/",
+        monitoring_schedules,
+        name="assistant_monitoring_schedules",
+    ),
+    path(
+        "monitoring/schedules/<int:schedule_id>/",
+        monitoring_schedule_detail,
+        name="assistant_monitoring_schedule_detail",
+    ),
+    path(
+        "monitoring/schedules/<int:schedule_id>/run/",
+        monitoring_schedule_run,
+        name="assistant_monitoring_schedule_run",
+    ),
     path("reports/", assistant_reports_catalog, name="assistant_reports_catalog"),
     path(
         "reports/analytics/",

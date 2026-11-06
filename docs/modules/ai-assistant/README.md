@@ -8,6 +8,8 @@
 |------|----------|
 | **[../ai-hub/TZ-unified-v1.8 (МИХ).docx](../ai-hub/TZ-unified-v1.8%20(МИХ).docx)** | Единое ТЗ, часть III — ИИ-ассистент |
 | [../../ui/ai-hub-panel-mockup.md](../../ui/ai-hub-panel-mockup.md) | Описание UI панели AI Hub |
+| [filtry-kontenta.md](filtry-kontenta.md) | Фильтры контента (§5.1.15): механизм и проверки на сервере |
+| [assistant_monitoring_backend.md](assistant_monitoring_backend.md) | Мониторинг ассистента (§5.4): события, сводка, отчёты |
 
 ## Интерактивные макеты (Cursor Canvas)
 

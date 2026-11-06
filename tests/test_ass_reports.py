@@ -14,11 +14,40 @@ import django  # noqa: E402
 
 django.setup()
 
+from datetime import datetime, timezone as dt_timezone  # noqa: E402
+
 from django.contrib.auth import get_user_model  # noqa: E402
 from django.contrib.auth.models import Group  # noqa: E402
 from django.test import Client, TestCase  # noqa: E402
 
+from assistant.models import AssistantRequestEvent  # noqa: E402
 from auth.roles import ROLES_BY_CODE  # noqa: E402
+
+
+def _response_bytes(response) -> bytes:
+    if getattr(response, "streaming", False):
+        return b"".join(response.streaming_content)
+    return response.content
+
+
+def _seed_hr_event() -> None:
+    event = AssistantRequestEvent.objects.create(
+        request_id="ass-rpt-seed",
+        message_id="ass-rpt-msg",
+        username="analyst",
+        department="hr",
+        query_type=AssistantRequestEvent.QUERY_RAG,
+        topic="отпуска",
+        outcome=AssistantRequestEvent.OUTCOME_STREAMED,
+        total_ms=1000,
+        top_relevance=80,
+        doc_count=1,
+        question_text="скрытый вопрос",
+        answer_text="скрытый ответ",
+    )
+    AssistantRequestEvent.objects.filter(pk=event.pk).update(
+        created_at=datetime(2026, 7, 2, 9, 0, tzinfo=dt_timezone.utc),
+    )
 
 
 class AssReportsApiTest(TestCase):
@@ -59,6 +88,7 @@ class AssReportsApiTest(TestCase):
     def test_analyst_gets_analytics_usage_feedback_tools(self):
         client = Client()
         client.force_login(self.user_for_role("ai_assistant_analyst"))
+        _seed_hr_event()
 
         response = client.get(
             "/api/v1/assistant/reports/analytics/",
@@ -70,7 +100,7 @@ class AssReportsApiTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertTrue(payload["stub"])
+        self.assertFalse(payload["stub"])
         self.assertIn("summary", payload)
         self.assertGreater(len(payload["rows"]), 0)
         self.assertTrue(
@@ -102,6 +132,7 @@ class AssReportsApiTest(TestCase):
     def test_csv_and_xlsx_export_downloadable(self):
         client = Client()
         client.force_login(self.user_for_role("ai_assistant_analyst"))
+        _seed_hr_event()
         params = {
             "date_from": "2026-07-01",
             "date_to": "2026-07-03",
@@ -112,12 +143,13 @@ class AssReportsApiTest(TestCase):
             {**params, "format": "csv"},
         )
         self.assertEqual(csv_response.status_code, 200)
+        csv_body = _response_bytes(csv_response)
         self.assertIn("text/csv", csv_response["Content-Type"])
         self.assertIn("attachment", csv_response["Content-Disposition"])
         self.assertEqual(csv_response["X-FR-Catalog"], "FR-RPT-ASS")
-        self.assertIn(b"date,department,query_type", csv_response.content)
-        self.assertIn(b"FR-RPT-ASS-", csv_response.content)
-        self.assertGreater(len(csv_response.content), 40)
+        self.assertIn(b"date,department,query_type", csv_body)
+        self.assertIn(b"FR-RPT-ASS-", csv_body)
+        self.assertGreater(len(csv_body), 40)
 
         xlsx_response = client.get(
             "/api/v1/assistant/reports/export/",
@@ -141,7 +173,7 @@ class AssReportsApiTest(TestCase):
         client.force_login(self.user_for_role("ai_assistant_analyst"))
         response = client.get("/api/reports/ass/analytics/")
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["stub"])
+        self.assertFalse(response.json()["stub"])
         export = client.get("/api/reports/ass/export/", {"format": "csv"})
         self.assertEqual(export.status_code, 200)
         self.assertEqual(export["X-FR-Catalog"], "FR-RPT-ASS")

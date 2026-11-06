@@ -433,6 +433,7 @@ export function useAssistantChat({
               sessionId,
               kbSlugs: getKbSlugs?.() ?? [],
               skillId: getSkillId?.() ?? undefined,
+              messageId: assistantId,
               attachments: readyAttachments.map((item) => ({
                 name: item.name,
                 type: item.type,

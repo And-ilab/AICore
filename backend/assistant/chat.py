@@ -153,6 +153,18 @@ def _as_messages(payload: Mapping[str, Any]) -> list[dict[str, str]]:
     return messages
 
 
+def _parse_message_id(value: Any) -> str:
+    """Optional client id shared with the feedback button. Empty is allowed."""
+    if value is None or value == "":
+        return ""
+    if not isinstance(value, str):
+        raise AssistantChatError("message_id must be a string")
+    text = value.strip()
+    if not text or len(text) > 64:
+        raise AssistantChatError("message_id must be 1..64 characters")
+    return text
+
+
 def _parse_kb_slugs(payload: Mapping[str, Any]) -> list[str]:
     raw = payload.get("kb_slugs")
     if raw is None:
@@ -226,6 +238,7 @@ def parse_chat_request(payload: Mapping[str, Any]) -> dict[str, Any]:
         "kb_slugs": _parse_kb_slugs(payload),
         "expand": expand,
         "skill_id": skill_id,
+        "message_id": _parse_message_id(payload.get("message_id")),
     }
 
 
@@ -710,40 +723,53 @@ def _included_rag_chars(
     return total
 
 
-def _sse_frame_has_content(frame: str) -> bool:
+def _append_capped(parts: list[str], text: str, limit: int = 4000) -> None:
+    if not text:
+        return
+    used = sum(len(part) for part in parts)
+    if used >= limit:
+        return
+    parts.append(text[: limit - used])
+
+
+def _sse_delta_text(frame: str) -> str:
     stripped = frame.lstrip()
     if not stripped.startswith("data:"):
-        return False
+        return ""
     payload = stripped[5:].strip()
     if not payload or payload == "[DONE]":
-        return False
+        return ""
     try:
         chunk = json.loads(payload)
     except json.JSONDecodeError:
-        return False
+        return ""
     if not isinstance(chunk, dict):
-        return False
+        return ""
     choices = chunk.get("choices")
-    if not isinstance(choices, list) or not choices:
-        return False
-    first = choices[0]
-    if not isinstance(first, dict):
-        return False
-    delta = first.get("delta")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return ""
+    delta = choices[0].get("delta")
     if not isinstance(delta, dict):
-        return False
+        return ""
     text = delta.get("content")
-    return isinstance(text, str) and bool(text)
+    return text if isinstance(text, str) else ""
+
+
+def _sse_frame_has_content(frame: str) -> bool:
+    return bool(_sse_delta_text(frame))
 
 
 def _timed_outbound(
     frames: Iterator[str],
     marks: dict[str, float | None],
+    sink: list[str] | None = None,
 ) -> Iterator[str]:
     """Yield the same frames and record time-to-first text plus stream duration."""
     started = time.perf_counter()
     try:
         for frame in frames:
+            if sink is not None:
+                _append_capped(sink, _sse_delta_text(frame))
             if marks["ttft_ms"] is None and _sse_frame_has_content(frame):
                 marks["ttft_ms"] = elapsed_ms(started)
             yield frame
@@ -760,6 +786,9 @@ def iter_chat_sse(
     expand: bool = False,
     skill_instruction: str = "",
     actor: str = "",
+    message_id: str = "",
+    session_id: str = "",
+    department: str = "",
 ) -> Iterator[str]:
     """Yield OpenAI-compatible SSE frames from ``assistant_bank`` with RAG."""
     started = time.perf_counter()
@@ -773,6 +802,10 @@ def iter_chat_sse(
     max_tokens: int | None = None
     doc_count = 0
     top_relevance: int | float | None = None
+    attachment_mode = False
+    source_title = ""
+    answer_parts: list[str] = []
+    skill_used = bool(skill_instruction)
     token_marks: dict[str, float | None] = {"ttft_ms": None, "llm_ms": None}
     try:
         filter_started = time.perf_counter()
@@ -789,6 +822,7 @@ def iter_chat_sse(
             except Exception:
                 logger.exception("content_filter_audit_failed")
             yield from _iter_plain_sse(content_hit.refusal_text)
+            _append_capped(answer_parts, content_hit.refusal_text)
             return
 
         expand = _effective_expand(expand)
@@ -830,6 +864,8 @@ def iter_chat_sse(
 
         doc_count = len(documents)
         top_relevance = _top_relevance(documents)
+        if documents:
+            source_title = str(documents[0].get("title") or "")
         sources = [_citation(document) for document in documents]
         yield (
             "data: "
@@ -846,6 +882,7 @@ def iter_chat_sse(
 
         if not documents and not attachment_mode and not skill_instruction:
             outcome = "no_kb"
+            _append_capped(answer_parts, NO_KB_ANSWER)
             yield from _iter_plain_sse(NO_KB_ANSWER)
             return
 
@@ -915,13 +952,14 @@ def iter_chat_sse(
             stream = active.stream(PROFILE, outbound, **parameters)
             if char_limit is not None:
                 stream = _clip_sse_stream(stream, char_limit)
-            yield from _timed_outbound(stream, token_marks)
+            yield from _timed_outbound(stream, token_marks, answer_parts)
         except ModelGatewayConfigurationError as exc:
             outcome = "llm_error"
             raise AssistantChatError(str(exc)) from exc
         except Exception as exc:
             # Surface gateway/network errors into the SSE so the UI stops spinning.
             outcome = "llm_error"
+            _append_capped(answer_parts, "Не удалось получить ответ от модели.")
             err = str(exc) or exc.__class__.__name__
             yield (
                 "data: "
@@ -983,3 +1021,36 @@ def iter_chat_sse(
                 "first_text_ms": ttft_ms,
             }
         )
+        from assistant.monitoring_record import record_chat_event
+
+        try:
+            record_chat_event(
+                request_id=request_id or "",
+                message_id=message_id,
+                session_id=session_id,
+                username=actor,
+                department=department,
+                question_text=_filter_query(messages),
+                answer_text="".join(answer_parts),
+                outcome=outcome,
+                total_ms=total_ms,
+                ttft_ms=ttft_ms,
+                llm_ms=token_marks["llm_ms"],
+                top_relevance=(
+                    top_relevance
+                    if isinstance(top_relevance, (int, float))
+                    and not isinstance(top_relevance, bool)
+                    else None
+                ),
+                doc_count=doc_count,
+                kb_slugs=[str(slug) for slug in (kb_slugs or [])],
+                source_title=source_title,
+                attachment_mode=attachment_mode,
+                skill_used=skill_used,
+            )
+        except Exception as exc:
+            logger.warning(
+                "metric_write_failed request_id=%s error_type=%s",
+                request_id or "-",
+                type(exc).__name__,
+            )

@@ -25,6 +25,7 @@ import {
   ContentFiltersScreen,
   type ContentFiltersScreenHandle,
 } from './ContentFiltersScreen'
+import { LlmConfigScreen, LLM_CONFIG_PREVIEW_LAYERS } from './LlmConfigScreen'
 import { DocTypesScreen } from './DocTypesScreen'
 import { OcrDocumentsPanel } from '../ocr/OcrDocumentsPanel'
 import { CcReportsScreen } from '../reports/CcReportsScreen'
@@ -32,6 +33,7 @@ import { AsrQaScreen } from '../reports/AsrQaScreen'
 import { ScenarioEditorScreen } from './ScenarioEditorScreen'
 import { ScenarioTestScreen } from './ScenarioTestScreen'
 import { ScenarioBindingsScreen } from './ScenarioBindingsScreen'
+import { AssistantMonitoringCards } from './AssistantMonitoringCards'
 import '../reports/ReportsTheme.css'
 import type { ModelParamsData } from './api/modelRegistry'
 import {
@@ -651,6 +653,19 @@ export function AiHubAdminApp({
                 window.history.pushState({}, '', `/ai-hub/admin/scenario_editor?scenario=${encodeURIComponent(code)}`)
               }}
             />
+          ) : screen === 'llm_config_assistant' || screen === 'llm_config_cc' ? (
+            <LlmConfigScreen
+              profile={screen === 'llm_config_cc' ? 'sufler_cc' : 'assistant_bank'}
+              canEdit={canEdit}
+              previewLayers={skipSessionBootstrap ? LLM_CONFIG_PREVIEW_LAYERS : undefined}
+              onOpen={(href) => {
+                const route = resolveAdminRoute(href)
+                setScreen(route.screen)
+                setProfile(route.profile)
+                if (route.screen === 'scenario_editor') setSelectedScenarioCode('')
+                window.history.pushState({}, '', href)
+              }}
+            />
           ) : scenarioCatalogVisible ? (
             <ScenarioBindingsScreen
               onOpenScenario={(code) => {
@@ -664,6 +679,8 @@ export function AiHubAdminApp({
                 window.history.pushState({}, '', '/ai-hub/admin/scenario_editor?scenario=new')
               }}
             />
+          ) : screen === 'monitoring' ? (
+            <AssistantMonitoringCards />
           ) : (
             <>
               <section className="admin-stats" aria-label={`Сводка экрана ${copy.title}`}>
@@ -707,7 +724,7 @@ export function AiHubAdminApp({
           )}
         </main>
 
-        {screen !== 'qu_admin' && screen !== 'sufler_training' && screen !== 'kb_admin' && screen !== 'prompts_assistant' && screen !== 'capabilities' && screen !== 'assistant_tools' && screen !== 'doc_types' && screen !== 'ocr' && screen !== 'sufler_stats' && screen !== 'cc_reports' && screen !== 'asr_qa' && screen !== 'scenario_editor' && screen !== 'scenario_test' && screen !== 'scenario_bindings' && (
+        {screen !== 'qu_admin' && screen !== 'sufler_training' && screen !== 'kb_admin' && screen !== 'prompts_assistant' && screen !== 'capabilities' && screen !== 'assistant_tools' && screen !== 'doc_types' && screen !== 'ocr' && screen !== 'sufler_stats' && screen !== 'cc_reports' && screen !== 'asr_qa' && screen !== 'scenario_editor' && screen !== 'scenario_test' && screen !== 'scenario_bindings' && screen !== 'llm_config_assistant' && screen !== 'llm_config_cc' && screen !== 'monitoring' && (
         <footer className="admin-save-footer" data-testid="admin-save-footer">
           <span>
             {screen === 'model_params'
