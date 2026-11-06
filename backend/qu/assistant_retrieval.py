@@ -8,7 +8,7 @@ from typing import Any, Sequence
 from urllib.parse import unquote, urlparse
 
 from django.db import connection
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from pgvector.django import CosineDistance
 
 from core.embeddings import embed_query_with_backend

@@ -402,6 +402,15 @@ def _normalize(text: str) -> str:
     return (text or "").casefold().replace("ё", "е")
 
 
+def _phrase_stems(phrase: str) -> list[str]:
+    stems: list[str] = []
+    for word in re.findall(r"[0-9a-zа-я]+", _normalize(phrase)):
+        if len(word) < 4:
+            continue
+        stems.append(word if len(word) <= 5 else word[:5])
+    return stems
+
+
 def _mask_exceptions(text: str, exceptions: Sequence[str]) -> str:
     masked = text
     phrases = sorted(
@@ -413,6 +422,13 @@ def _mask_exceptions(text: str, exceptions: Sequence[str]) -> str:
         if len(phrase) < 3:
             continue
         masked = masked.replace(phrase, " " * len(phrase))
+        stems = _phrase_stems(phrase)
+        if len(stems) < 2:
+            continue
+        pattern = r"(?<![\w])" + r"\W+".join(
+            rf"{re.escape(stem)}[\w]*" for stem in stems
+        )
+        masked = re.sub(pattern, lambda match: " " * len(match.group(0)), masked)
     return masked
 
 

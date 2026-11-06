@@ -118,6 +118,10 @@ def run_locust_pipeline(*, users: int, duration_s: int, spawn_rate: float) -> di
     assert env.runner is not None
 
     env.runner.start(users, spawn_rate=spawn_rate)
+    # First requests pay for greenlet and SQLite setup. The SLA is the
+    # steady window, so drop that spike before measuring.
+    time.sleep(1)
+    env.stats.reset_all()
     time.sleep(duration_s)
     env.runner.quit()
 

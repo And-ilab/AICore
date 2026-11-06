@@ -398,13 +398,14 @@ def is_social_turn(text: str) -> bool:
     stripped = _strip_phatic(norm)
     if _IDENTITY_RE.fullmatch(stripped) or _PERSONAL_FACT_RE.fullmatch(stripped):
         return True
+    # «я Иван Петров» is a name. «я передумал оформлять» is not.
+    if (
+        re.fullmatch(r"я\s+[а-яёa-z-]+(?:\s+[а-яёa-z-]+)?", stripped)
+        and not _DECLINE_RE.search(stripped)
+        and not re.search(r"(?:ть|ти|чь)\b", stripped)
+    ):
+        return True
     stripped = _INTRO_RE.sub("", stripped).strip()
-    stripped = re.sub(
-        r"^я\s+[а-яёa-z-]+(?:\s+[а-яёa-z-]+)?",
-        "",
-        stripped,
-        count=1,
-    ).strip()
     return not _tokens(stripped)
 
 

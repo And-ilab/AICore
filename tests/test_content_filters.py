@@ -23,6 +23,7 @@ from auth.roles import ROLES_BY_CODE  # noqa: E402
 from hub.content_filters import (  # noqa: E402
     apply_content_filter_instruction,
     match_content_filter,
+    seed_default_content_filters,
 )
 from hub.models import AssistantContentFilter  # noqa: E402
 
@@ -44,6 +45,9 @@ def parse_sse_content(raw: bytes | str) -> str:
 
 
 class ContentFilterMatchTest(TestCase):
+    def setUp(self):
+        seed_default_content_filters(username="test")
+
     def test_politics_and_religion_block_before_any_model(self):
         politics = match_content_filter("Расскажи про выборы и депутатов")
         religion = match_content_filter("Что такое ислам?")
@@ -89,6 +93,9 @@ class ContentFilterMatchTest(TestCase):
 
 class ContentFiltersApiTest(TestCase):
     url = "/api/admin/assistant/content-filters/"
+
+    def setUp(self):
+        seed_default_content_filters(username="test")
 
     def user_for_role(self, role_code):
         role = ROLES_BY_CODE[role_code]
@@ -203,6 +210,9 @@ class ContentFiltersApiTest(TestCase):
 
 class ContentFilterChatTest(TestCase):
     url = "/api/v1/assistant/chat"
+
+    def setUp(self):
+        seed_default_content_filters(username="test")
 
     def user_for_role(self, role_code):
         role = ROLES_BY_CODE[role_code]

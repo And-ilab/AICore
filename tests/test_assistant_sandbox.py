@@ -16,11 +16,21 @@ from django.contrib.auth import get_user_model  # noqa: E402
 from django.test import RequestFactory, TestCase, override_settings  # noqa: E402
 
 from assistant.sandbox import SandboxError, prepare_snippet  # noqa: E402
+from hub.models import AssistantSqlAccess  # noqa: E402
 
 
 @override_settings(AUDIT_ENABLED=False)
 class SandboxSnippetTests(TestCase):
     def setUp(self):
+        for object_name, name in (
+            ("cards", "Карты клиентов"),
+            ("deposits", "Вклады"),
+            ("staff_requests", "Заявки сотрудников"),
+        ):
+            AssistantSqlAccess.objects.get_or_create(
+                object_name=object_name,
+                defaults={"name": name, "active": True},
+            )
         self.request = RequestFactory().post("/api/v1/assistant/sandbox/")
         user_model = get_user_model()
         self.request.user = user_model.objects.create_user(

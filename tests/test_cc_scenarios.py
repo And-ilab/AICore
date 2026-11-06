@@ -27,6 +27,7 @@ from hub.models import DialogScenario  # noqa: E402
 from hub.scenario_catalog import (  # noqa: E402
     ALL_SCENARIOS,
     DRAFT_SCENARIOS,
+    FLOW_SCENARIOS,
     NO_HINT_EXAMPLES,
     REFERENCE_SCENARIOS,
 )
@@ -62,7 +63,8 @@ class DialogScenarioCatalogTest(TestCase):
         self.assertEqual(len(codes), len(set(codes)))
 
     def test_seed_upserts_production_graphs(self):
-        for payload in REFERENCE_SCENARIOS:
+        # TransactionTestCase earlier in the suite flushes migration seeds.
+        for payload in (*FLOW_SCENARIOS, *REFERENCE_SCENARIOS):
             upsert_from_catalog(payload, username="test")
         self.assertEqual(
             DialogScenario.objects.filter(status=DialogScenario.STATUS_PRODUCTION).count(),

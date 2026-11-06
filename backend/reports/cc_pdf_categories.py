@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
@@ -93,7 +94,16 @@ def _register_times_fonts() -> None:
     global _FONTS_READY
     if _FONTS_READY:
         return
+    windows_fonts = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
     pairs = (
+        (
+            windows_fonts / "times.ttf",
+            windows_fonts / "timesbd.ttf",
+        ),
+        (
+            windows_fonts / "Times New Roman.ttf",
+            windows_fonts / "Times New Roman Bold.ttf",
+        ),
         (
             Path("/Library/Fonts/Times New Roman.ttf"),
             Path("/Library/Fonts/Times New Roman Bold.ttf"),

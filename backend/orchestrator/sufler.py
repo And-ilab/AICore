@@ -1627,6 +1627,25 @@ def suggest(
         }
 
     if is_social_turn(normalized):
+        social_scenario = None
+        try:
+            social_turn = resolve_scenario_turn(
+                normalized,
+                session_key=session_id,
+                channel=channel_key,
+            )
+            if social_turn.paused_progress is not None:
+                social_scenario = _scenario_payload(
+                    social_turn.paused_progress,
+                    paused=True,
+                )
+            elif social_turn.progress is not None:
+                social_scenario = _scenario_payload(social_turn.progress)
+        except Exception:  # noqa: BLE001 — a thanks must not break suggest
+            logger.exception(
+                "sufler_scenario_failed request_id=%s",
+                correlation_id,
+            )
         latency_ms["total"] = _elapsed_ms(total_started)
         _log_latency(
             request_id=correlation_id,
@@ -1645,7 +1664,7 @@ def suggest(
             "min_relevance": min_relevance,
             "latency_ms": latency_ms,
             "request_id": correlation_id,
-            "scenario": None,
+            "scenario": social_scenario,
             "suggested_scenario": None,
         }
 
